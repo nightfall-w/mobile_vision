@@ -135,7 +135,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-.env
 .envrc
 .venv
 env/
@@ -201,7 +200,13 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-# Marimo
-marimo/_static/
-marimo/_lsp/
-__marimo__/
+logs/
+temp/
+runs/
+outputs/
+models/yolo/models/
+models/yolo/output/
+models/yolo/runs/
+models/yolo/data/
+
+mobile_vision_web/node_modules/
