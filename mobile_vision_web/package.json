@@ -1,0 +1,54 @@
+{
+  "name": "mobile_vision_web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "test": "vite --mode test",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --fix --cache",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.1",
+    "baseline-browser-mapping": "latest",
+    "chart.js": "^4.5.1",
+    "copy-to-clipboard": "^3.3.3",
+    "core-js": "^3.8.3",
+    "cron-parser": "^5.4.0",
+    "echarts": "^6.0.0",
+    "element-plus": "^2.10.5",
+    "font-awesome": "^4.7.0",
+    "highlight.js": "^11.11.1",
+    "lodash": "^4.17.21",
+    "marked": "^18.0.3",
+    "normalize-wheel": "^1.0.1",
+    "normalize-wheel-es": "^1.2.0",
+    "prismjs": "^1.30.0",
+    "vue": "^3.5.22",
+    "vue-prism-component": "^2.0.0",
+    "vue-router": "^4.6.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.37.0",
+    "@tailwindcss/postcss": "^4.1.16",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/eslint-config-prettier": "^10.2.0",
+    "autoprefixer": "^10.4.21",
+    "axios": "^1.13.1",
+    "baseline-browser-mapping": "latest",
+    "eslint": "^9.37.0",
+    "eslint-plugin-vue": "~10.5.0",
+    "globals": "^16.4.0",
+    "postcss": "^8.5.6",
+    "prettier": "3.6.2",
+    "tailwindcss": "^3.4.18",
+    "vite": "^7.1.11",
+    "vite-plugin-vue-devtools": "^8.0.3"
+  }
+}
