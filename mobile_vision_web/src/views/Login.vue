@@ -600,6 +600,58 @@ const handleRegister = async () => {
   margin-bottom: 20px;
 }
 
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__label) {
+  color: #64748b;
+}
+
+:deep(.el-link) {
+  color: #3b82f6 !important;
+}
+
+/* Customize Element Plus inputs */
+:deep(.el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  transition: all 0.2s !important;
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: #cbd5e1 !important;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #3b82f6 !important;
+  background-color: #fff !important;
+}
+
+:deep(.el-input__inner) {
+  color: #1e293b !important;
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: #94a3b8 !important;
+}
+
+:deep(.el-input__prefix) {
+  color: #64748b !important;
+}
+
 .login-button,
 .register-button {
   width: 100%;
@@ -652,10 +704,10 @@ const handleRegister = async () => {
 .footer-info {
   text-align: center;
   padding: 20px;
-  color: #999;
+  color: #94a3b8;
   font-size: 12px;
-  border-top: 1px solid #eee;
-  background: #fafafa;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: transparent;
 }
 
 /* 响应式设计 */
