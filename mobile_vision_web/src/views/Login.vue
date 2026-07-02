@@ -535,33 +535,33 @@ const handleRegister = async () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #fafafa;
+  background: transparent;
 }
 
 .login-form-container {
-  padding: 40px;
+  padding: 50px 40px;
 }
 
 .tab-switch {
   display: flex;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #f1f5f9;
   margin-bottom: 30px;
 }
 
 .tab-item {
   flex: 1;
   text-align: center;
-  padding: 15px 0;
+  padding: 12px 0;
   cursor: pointer;
   font-size: 16px;
-  color: #666;
+  color: #64748b;
   transition: all 0.3s;
   font-weight: 500;
   position: relative;
 }
 
 .tab-item.active {
-  color: #4b6ef7;
+  color: #3b82f6;
   font-weight: 600;
 }
 
@@ -571,21 +571,9 @@ const handleRegister = async () => {
   bottom: -2px;
   left: 20%;
   width: 60%;
-  height: 3px;
-  background: #4b6ef7;
-  border-radius: 3px;
-  animation: tabLine 0.3s ease-out;
-}
-
-@keyframes tabLine {
-  from {
-    width: 0;
-    left: 50%;
-  }
-  to {
-    width: 60%;
-    left: 20%;
-  }
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 2px;
 }
 
 .form-title {
@@ -595,12 +583,13 @@ const handleRegister = async () => {
 
 .form-title h3 {
   font-size: 24px;
-  color: #333;
+  color: #1e293b;
   margin-bottom: 8px;
+  font-weight: 700;
 }
 
 .form-title p {
-  color: #666;
+  color: #64748b;
   font-size: 14px;
 }
 
@@ -615,16 +604,18 @@ const handleRegister = async () => {
 .register-button {
   width: 100%;
   margin-top: 10px;
-  background: linear-gradient(135deg, #4b6ef7 0%, #69c0ff 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border: none;
-  transition: all 0.3s;
+  transition: all 0.2s;
   color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .login-button:hover,
 .register-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(75, 110, 247, 0.3);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
 }
 
 .form-slide-in {
@@ -648,13 +639,13 @@ const handleRegister = async () => {
 
 @keyframes inputFocus {
   0% {
-    box-shadow: 0 0 0 0 rgba(75, 110, 247, 0.3);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(75, 110, 247, 0);
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(75, 110, 247, 0);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
 }
 
