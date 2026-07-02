@@ -473,34 +473,13 @@ const handleRegister = async () => {
 
 .login-decoration {
   flex: 1;
-  background: linear-gradient(135deg, #4b6ef7 0%, #69c0ff 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.9) 100%);
+  color: #1e293b;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-decoration::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-  animation: rotate 20s linear infinite;
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .decoration-content {
@@ -510,55 +489,27 @@ const handleRegister = async () => {
 
 .logo-placeholder {
   margin-bottom: 30px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 .logo-icon {
   font-size: 60px;
   margin-bottom: 20px;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
 }
 
 .title-animation {
-  font-size: 28px;
+  font-size: 24px;
   margin-bottom: 10px;
-  font-weight: 600;
-  animation: fadeInUp 1s ease-out;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  font-weight: 700;
 }
 
 .subtitle {
-  font-size: 16px;
-  opacity: 0.9;
+  font-size: 14px;
+  color: #64748b;
   margin-bottom: 40px;
-  animation: fadeInUp 1s ease-out 0.2s both;
 }
 
 .features {
   text-align: left;
-  animation: fadeInUp 1s ease-out 0.4s both;
 }
 
 .feature-item {
@@ -566,19 +517,7 @@ const handleRegister = async () => {
   align-items: center;
   margin-bottom: 20px;
   font-size: 14px;
-  opacity: 0;
-  animation: slideInRight 0.5s ease-out forwards;
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  color: #64748b;
 }
 
 .feature-icon {
@@ -589,16 +528,6 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
 }
 
 .login-box {
