@@ -671,17 +671,15 @@ const handleRegister = async () => {
 }
 
 .form-slide-in {
-  animation: slideIn 0.5s ease-out;
+  animation: fadeIn 0.3s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(20px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
