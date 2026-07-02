@@ -320,6 +320,7 @@ const getStatusText = (status) => {
 const getProgressStatus = (status) => {
   if (status === 'failed') return 'exception'
   if (status === 'completed') return 'success'
+  if (status === 'aborted') return 'warning'
   return ''
 }
 

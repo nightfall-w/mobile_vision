@@ -453,7 +453,7 @@ const handleRegister = async () => {
   display: flex;
   width: 100%;
   max-width: 800px;
-  height: 500px;
+  min-height: 580px;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
