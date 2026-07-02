@@ -420,78 +420,66 @@ const handleRegister = async () => {
   justify-content: center;
   align-items: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #cbd5e1 100%);
   padding: 20px;
-  animation: gradientShift 10s ease infinite;
-  background-size: 400% 400%;
+  position: relative;
+  overflow: hidden;
 }
 
-@keyframes gradientShift {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+/* Decorative background elements */
+.login-container::before {
+  content: '';
+  position: absolute;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%);
+  top: -100px;
+  right: -100px;
+  pointer-events: none;
+}
+
+.login-container::after {
+  content: '';
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
+  bottom: -50px;
+  left: -50px;
+  pointer-events: none;
 }
 
 .login-wrapper {
   display: flex;
   width: 100%;
-  max-width: 900px;
-  height: 600px;
-  background: white;
-  border-radius: 20px;
+  max-width: 800px;
+  height: 500px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-  animation: float 6s ease-in-out infinite;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  position: relative;
+  z-index: 1;
 }
 
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
+@supports not (backdrop-filter: blur(20px)) {
+  .login-wrapper {
+    background: rgba(255, 255, 255, 0.95);
   }
 }
 
 .login-decoration {
   flex: 1;
-  background: linear-gradient(135deg, #4b6ef7 0%, #69c0ff 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(248, 250, 252, 0.9) 100%);
+  color: #1e293b;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 40px;
-  position: relative;
-  overflow: hidden;
-}
-
-.login-decoration::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
-  animation: rotate 20s linear infinite;
-}
-
-@keyframes rotate {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  border-right: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .decoration-content {
@@ -501,55 +489,27 @@ const handleRegister = async () => {
 
 .logo-placeholder {
   margin-bottom: 30px;
-  animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.1);
-  }
-  100% {
-    transform: scale(1);
-  }
 }
 
 .logo-icon {
   font-size: 60px;
   margin-bottom: 20px;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5));
 }
 
 .title-animation {
-  font-size: 28px;
+  font-size: 24px;
   margin-bottom: 10px;
-  font-weight: 600;
-  animation: fadeInUp 1s ease-out;
-}
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  font-weight: 700;
 }
 
 .subtitle {
-  font-size: 16px;
-  opacity: 0.9;
+  font-size: 14px;
+  color: #64748b;
   margin-bottom: 40px;
-  animation: fadeInUp 1s ease-out 0.2s both;
 }
 
 .features {
   text-align: left;
-  animation: fadeInUp 1s ease-out 0.4s both;
 }
 
 .feature-item {
@@ -557,19 +517,7 @@ const handleRegister = async () => {
   align-items: center;
   margin-bottom: 20px;
   font-size: 14px;
-  opacity: 0;
-  animation: slideInRight 0.5s ease-out forwards;
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
+  color: #64748b;
 }
 
 .feature-icon {
@@ -580,16 +528,6 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: bounce 2s infinite;
-}
-
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-5px);
-  }
 }
 
 .login-box {
@@ -597,33 +535,33 @@ const handleRegister = async () => {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  background: #fafafa;
+  background: transparent;
 }
 
 .login-form-container {
-  padding: 40px;
+  padding: 50px 40px;
 }
 
 .tab-switch {
   display: flex;
-  border-bottom: 2px solid #e0e0e0;
+  border-bottom: 2px solid #f1f5f9;
   margin-bottom: 30px;
 }
 
 .tab-item {
   flex: 1;
   text-align: center;
-  padding: 15px 0;
+  padding: 12px 0;
   cursor: pointer;
   font-size: 16px;
-  color: #666;
+  color: #64748b;
   transition: all 0.3s;
   font-weight: 500;
   position: relative;
 }
 
 .tab-item.active {
-  color: #4b6ef7;
+  color: #3b82f6;
   font-weight: 600;
 }
 
@@ -633,21 +571,9 @@ const handleRegister = async () => {
   bottom: -2px;
   left: 20%;
   width: 60%;
-  height: 3px;
-  background: #4b6ef7;
-  border-radius: 3px;
-  animation: tabLine 0.3s ease-out;
-}
-
-@keyframes tabLine {
-  from {
-    width: 0;
-    left: 50%;
-  }
-  to {
-    width: 60%;
-    left: 20%;
-  }
+  height: 2px;
+  background: #3b82f6;
+  border-radius: 2px;
 }
 
 .form-title {
@@ -657,12 +583,13 @@ const handleRegister = async () => {
 
 .form-title h3 {
   font-size: 24px;
-  color: #333;
+  color: #1e293b;
   margin-bottom: 8px;
+  font-weight: 700;
 }
 
 .form-title p {
-  color: #666;
+  color: #64748b;
   font-size: 14px;
 }
 
@@ -673,34 +600,86 @@ const handleRegister = async () => {
   margin-bottom: 20px;
 }
 
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__input.is-indeterminate .el-checkbox__inner) {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__input.is-focus .el-checkbox__inner) {
+  border-color: #3b82f6;
+}
+
+:deep(.el-checkbox__label) {
+  color: #64748b;
+}
+
+:deep(.el-link) {
+  color: #3b82f6 !important;
+}
+
+/* Customize Element Plus inputs */
+:deep(.el-input__wrapper) {
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border: 2px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  box-shadow: none !important;
+  transition: all 0.2s !important;
+}
+
+:deep(.el-input__wrapper:hover) {
+  border-color: #cbd5e1 !important;
+}
+
+:deep(.el-input__wrapper.is-focus) {
+  border-color: #3b82f6 !important;
+  background-color: #fff !important;
+}
+
+:deep(.el-input__inner) {
+  color: #1e293b !important;
+}
+
+:deep(.el-input__inner::placeholder) {
+  color: #94a3b8 !important;
+}
+
+:deep(.el-input__prefix) {
+  color: #64748b !important;
+}
+
 .login-button,
 .register-button {
   width: 100%;
   margin-top: 10px;
-  background: linear-gradient(135deg, #4b6ef7 0%, #69c0ff 100%);
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   border: none;
-  transition: all 0.3s;
+  transition: all 0.2s;
   color: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .login-button:hover,
 .register-button:hover {
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(75, 110, 247, 0.3);
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.35);
 }
 
 .form-slide-in {
-  animation: slideIn 0.5s ease-out;
+  animation: fadeIn 0.3s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(20px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
@@ -710,23 +689,23 @@ const handleRegister = async () => {
 
 @keyframes inputFocus {
   0% {
-    box-shadow: 0 0 0 0 rgba(75, 110, 247, 0.3);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.3);
   }
   70% {
-    box-shadow: 0 0 0 10px rgba(75, 110, 247, 0);
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(75, 110, 247, 0);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
 }
 
 .footer-info {
   text-align: center;
   padding: 20px;
-  color: #999;
+  color: #94a3b8;
   font-size: 12px;
-  border-top: 1px solid #eee;
-  background: #fafafa;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: transparent;
 }
 
 /* 响应式设计 */
