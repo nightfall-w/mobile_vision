@@ -452,24 +452,22 @@ const handleRegister = async () => {
 .login-wrapper {
   display: flex;
   width: 100%;
-  max-width: 900px;
-  height: 600px;
-  background: white;
-  border-radius: 20px;
+  max-width: 800px;
+  height: 500px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 24px;
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
-  animation: float 6s ease-in-out infinite;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  position: relative;
+  z-index: 1;
 }
 
-@keyframes float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-  100% {
-    transform: translateY(0px);
+@supports not (backdrop-filter: blur(20px)) {
+  .login-wrapper {
+    background: rgba(255, 255, 255, 0.95);
   }
 }
 
