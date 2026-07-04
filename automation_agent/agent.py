@@ -478,6 +478,7 @@ class Agent:
                                 next_task: Task = None) -> Optional[ActionPlan]:
         """StepDecider: 根据页面状态决定后续操作计划（支持多步规划）"""
         structured_str = json.dumps(context.structured_elements, ensure_ascii=False)
+        logger.debug(json.dumps(context.structured_elements, ensure_ascii=False, indent=2))
 
         if self.operation_history:
             history_parts = []
@@ -576,7 +577,7 @@ class Agent:
                         4. 如果需要验证页面状态，使用action=assert并填写assertion
                         5. 当前页面与目标毫不相关时，善用press_key的back操作
                         6. 判断输入框是否已获取焦点：页面中出现"ADB Keyboard ON"表示输入框已聚焦，可以直接input输入，无需再点击输入框
-                        7. 页面中存在弹窗时，请先处理弹窗根据实际情况决定是否要先通过close按钮关闭，然后再执行下一步操作
+                        7. ★ 页面中存在弹窗时，请先处理弹窗根据实际情况决定是否要先通过点击关闭icon来关闭弹窗，然后再执行下一步操作，如果确认需要关闭弹窗且弹窗中没有可用来点击的关闭icon，请返回action=press_key的back操作
                         8. 确保所有步骤的描述清晰且准确，避免重复描述。
                         9. 如果你发现当前页面状态与任务无关，请直接返回action=press_key的back操作，不要陷入死循环。
                         10. 坐标必须严格在图片范围内：x∈[0, {context.image_width}]，y∈[0, {context.image_height}]，超出范围的操作将被拒绝。

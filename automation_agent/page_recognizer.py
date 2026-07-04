@@ -721,6 +721,7 @@ class PageElementRecognizer:
             sort_children_recursive(item)
 
         def convert_to_output(item):
+            """ 将内部元素结构转换为标准输出格式（递归处理嵌套子元素）"""
             bbox = item["bbox"]
             result = {
                 "id": item["id"],
@@ -738,23 +739,28 @@ class PageElementRecognizer:
                 "confidence": item["raw"].get("confidence", 0) if item.get("raw") else 0
             }
 
+            # 添加文本内容（普通元素直接从text字段获取）
             if item.get("text"):
                 result["text"] = item["text"]
+            # 文本块类型需要从raw中提取完整文本信息及颜色属性
             if item["type"] == "text_block":
                 result["text"] = item["raw"].get("text", "") if item.get("raw") else ""
                 result["color"] = item["color"]
                 result["color_brightness"] = item["color_brightness"]
 
+            # 递归转换子元素为输出格式
             if item["children"]:
                 result["children"] = [convert_to_output(child) for child in item["children"]]
 
             return result
 
+        # 按从上到下、从左到右的顺序排列根元素
         root_items.sort(key=lambda x: (
             x["bbox"].get("y1", 0),
             x["bbox"].get("x1", 0)
         ))
 
+        # 转换所有根元素并返回最终结果
         return [convert_to_output(item) for item in root_items]
 
     def _dedup_overlapping_elements(self, elements: List[Dict]) -> List[Dict]:
