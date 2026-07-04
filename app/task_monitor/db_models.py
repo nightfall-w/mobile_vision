@@ -41,12 +41,13 @@ class TaskExecutionRecord(Base):
 class TaskExecutionLog(Base):
     """任务执行日志"""
     __tablename__ = 'task_execution_log'
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     task_id = Column(Integer, nullable=False, index=True)
     level = Column(String(20), nullable=False)
     message = Column(Text, nullable=False)
     timestamp = Column(DateTime, nullable=False)
+    page_structure = Column(JSON, nullable=True)
     
     def to_dict(self):
         return {
@@ -54,5 +55,6 @@ class TaskExecutionLog(Base):
             'task_id': self.task_id,
             'level': self.level,
             'message': self.message,
-            'timestamp': self.timestamp.isoformat() if self.timestamp else None
+            'timestamp': self.timestamp.isoformat() if self.timestamp else None,
+            'page_structure': self.page_structure
         }

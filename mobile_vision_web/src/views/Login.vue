@@ -183,7 +183,7 @@
         </div>
 
         <div class="footer-info">
-          <p>© 2025 MobileVision 智能视觉平台. 保留所有权利.</p>
+          <p>© 2026 MobileVision 智能视觉平台. 保留所有权利.</p>
         </div>
       </div>
     </div>

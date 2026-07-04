@@ -451,6 +451,7 @@ class TaskExecutionStore:
                     log_timestamp = log_entry.get('timestamp') if isinstance(log_entry, dict) else log_entry.timestamp
                     log_level = log_entry.get('level') if isinstance(log_entry, dict) else log_entry.level
                     log_message = log_entry.get('message') if isinstance(log_entry, dict) else log_entry.message
+                    page_structure = log_entry.get('page_structure') if isinstance(log_entry, dict) else getattr(log_entry, 'page_structure', None)
                     # 用task_id+timestamp+level+message联合判断，避免同秒的不同日志被去重漏掉
                     existing_log = session.query(TaskExecutionLog).filter(
                         TaskExecutionLog.task_id == task_id,
@@ -463,7 +464,8 @@ class TaskExecutionStore:
                             task_id=task_id,
                             level=log_level,
                             message=log_message,
-                            timestamp=datetime.fromisoformat(log_timestamp)
+                            timestamp=datetime.fromisoformat(log_timestamp),
+                            page_structure=page_structure
                         )
                         session.add(log_record)
 
@@ -534,12 +536,15 @@ class TaskExecutionStore:
 
                 logs = []
                 for i, record in enumerate(records):
-                    logs.append({
+                    log_data = {
                         'level': record.level,
                         'message': record.message,
                         'timestamp': record.timestamp.isoformat() if record.timestamp else '',
                         '_log_id': f"{task_id}:mysql:{i}"
-                    })
+                    }
+                    if record.page_structure:
+                        log_data['page_structure'] = record.page_structure
+                    logs.append(log_data)
                 return logs
             finally:
                 session.close()

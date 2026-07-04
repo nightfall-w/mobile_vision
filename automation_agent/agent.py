@@ -902,15 +902,15 @@ class Agent:
 
     async def _verify_task(self, task: Task, usage_instructions: str,
                            context: Optional[PageContext] = None) -> TaskVerificationResult:
-        """mock成功响应"""
-        return TaskVerificationResult(
-            completed=True,
-            confidence=1.0,
-            evidence=[
-                f"满足目标条件：{task.target_state}"
-            ],
-            reason="任务完成"
-        )
+        # """mock成功响应"""
+        # return TaskVerificationResult(
+        #     completed=True,
+        #     confidence=1.0,
+        #     evidence=[
+        #         f"满足目标条件：{task.target_state}"
+        #     ],
+        #     reason="任务完成"
+        # )
         """验证任务是否完成"""
         if context is None:
             context = await self._perceive()
