@@ -20,7 +20,7 @@ from .types import (
 
 
 class Agent:
-    """自动化测试Agent - 重构增强版"""
+    """自动化测试Agent"""
 
     def __init__(self, interface, config: Optional[AgentConfig] = None):
         self.interface = interface
