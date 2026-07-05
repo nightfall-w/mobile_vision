@@ -462,7 +462,7 @@ class PageElementRecognizer:
         return "en"
 
     def _analyze_text_color(self, image_path: str, bbox_coords: list) -> dict:
-        """通用文字颜色分析（修正版：面积优先）"""
+        """通用文字颜色分析"""
         try:
             img = Image.open(image_path).convert('RGB')
             img_array = np.array(img)
