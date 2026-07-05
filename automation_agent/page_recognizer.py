@@ -481,6 +481,7 @@ class PageElementRecognizer:
             roi = img_array[y1:y2, x1:x2]
             h, w = roi.shape[:2]
 
+            # 超小元素直接去ROI中心像素的RGB值
             if h < 3 or w < 3:
                 center_color = roi[h // 2, w // 2]
                 r, g, b = int(center_color[0]), int(center_color[1]), int(center_color[2])
