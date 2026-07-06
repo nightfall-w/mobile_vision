@@ -201,21 +201,16 @@
               v-for="(log, index) in filteredLogs"
               :key="log._log_id || index"
               class="log-item"
-              :class="[log.level?.toLowerCase(), { 'collapsed': log.level === 'THINKING' && !expandedLogs.has(log._log_id) }]"
+              :class="[log.level?.toLowerCase()]"
             >
               <span class="log-time">{{ formatLogTime(log.timestamp) }}</span>
               <span v-if="log.level !== 'THINKING'" class="log-level">{{ log.level }}</span>
               <template v-if="log.level === 'THINKING'">
-                <el-icon class="thinking-toggle" @click="toggleLogExpand(log._log_id)">
-                  <ArrowRight v-if="!expandedLogs.has(log._log_id)" />
-                  <ArrowDown v-else />
-                </el-icon>
                 <span class="log-level thinking-label">思考</span>
-                <span class="log-message thinking-summary" @click="toggleLogExpand(log._log_id)">{{ getThinkingSummary(log.message) }}</span>
-                <div v-if="expandedLogs.has(log._log_id)" class="thinking-detail">
-                  <div class="thinking-text">{{ log.message }}</div>
-                  <PageStructureViewer v-if="log.page_structure" :pageData="log.page_structure" />
-                </div>
+                <span class="log-message thinking-summary" @click="openThinkingDialog(log)">{{ getThinkingSummary(log.message) }}</span>
+                <el-button size="small" text class="view-detail-btn" @click="openThinkingDialog(log)">
+                  <el-icon><View /></el-icon> 查看详情
+                </el-button>
               </template>
               <span v-else class="log-message">{{ log.message }}</span>
             </div>
@@ -227,6 +222,35 @@
         </el-card>
       </div>
     </div>
+
+    <!-- 思考详情弹窗 -->
+    <el-dialog
+      v-model="thinkingDialogVisible"
+      title="思考过程详情"
+      width="80%"
+      :close-on-click-modal="false"
+      :show-close="false"
+      class="thinking-dialog"
+    >
+      <template #header>
+        <div class="dialog-header">
+          <span class="dialog-title"><el-icon><Aim /></el-icon> 思考过程详情</span>
+          <el-icon class="close-btn" @click="closeThinkingDialog"><Close /></el-icon>
+        </div>
+      </template>
+      <div class="thinking-dialog-content" v-if="currentThinkingLog">
+        <div class="thinking-meta">
+          <span class="meta-time"><el-icon><Timer /></el-icon> {{ formatLogTime(currentThinkingLog.timestamp) }}</span>
+        </div>
+        <div class="thinking-content">
+          <pre class="thinking-text">{{ currentThinkingLog.message }}</pre>
+        </div>
+        <PageStructureViewer v-if="currentThinkingLog.page_structure" :pageData="currentThinkingLog.page_structure" />
+      </div>
+      <template #footer>
+        <el-button @click="closeThinkingDialog">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -234,7 +258,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, ArrowRight, ArrowDown, Aim, Location } from '@element-plus/icons-vue'
+import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, Aim, Location, View, Close } from '@element-plus/icons-vue'
 import axios from '../network/axios'
 import { abortTestJob } from '../network/api'
 import PageStructureViewer from '../components/PageStructureViewer.vue'
@@ -271,7 +295,8 @@ const currentScreenshot = ref('')
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
 const expandedSubtasks = ref([])
-const expandedLogs = ref(new Set())
+const thinkingDialogVisible = ref(false)
+const currentThinkingLog = ref(null)
 const imageScale = ref({ width: 0, height: 0, naturalWidth: 0, naturalHeight: 0 })
 const containerWidth = ref('40vw')
 const containerHeight = ref('auto')
@@ -373,14 +398,14 @@ const clearLogs = () => {
   logs.value = []
 }
 
-const toggleLogExpand = (logId) => {
-  const newSet = new Set(expandedLogs.value)
-  if (newSet.has(logId)) {
-    newSet.delete(logId)
-  } else {
-    newSet.add(logId)
-  }
-  expandedLogs.value = newSet
+const openThinkingDialog = (log) => {
+  currentThinkingLog.value = log
+  thinkingDialogVisible.value = true
+}
+
+const closeThinkingDialog = () => {
+  thinkingDialogVisible.value = false
+  currentThinkingLog.value = null
 }
 
 const getThinkingSummary = (message) => {
@@ -765,20 +790,66 @@ watch(currentScreenshot, (newVal) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 10px 10px;
-  background: #f5f7fa;
+  padding: 12px 12px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
   overflow: hidden;
+}
+
+/* 自定义滚动条 */
+:deep(.el-scrollbar__wrap::-webkit-scrollbar),
+:deep(.el-card__body::-webkit-scrollbar),
+.log-list::-webkit-scrollbar,
+.subtask-list::-webkit-scrollbar,
+.thinking-dialog-content::-webkit-scrollbar,
+:deep(.el-dialog__body::-webkit-scrollbar) {
+  width: 6px;
+  height: 6px;
+}
+
+:deep(.el-scrollbar__wrap::-webkit-scrollbar-track),
+:deep(.el-card__body::-webkit-scrollbar-track),
+.log-list::-webkit-scrollbar-track,
+.subtask-list::-webkit-scrollbar-track,
+.thinking-dialog-content::-webkit-scrollbar-track,
+:deep(.el-dialog__body::-webkit-scrollbar-track) {
+  background: transparent;
+  border-radius: 3px;
+}
+
+:deep(.el-scrollbar__wrap::-webkit-scrollbar-thumb),
+:deep(.el-card__body::-webkit-scrollbar-thumb),
+.log-list::-webkit-scrollbar-thumb,
+.subtask-list::-webkit-scrollbar-thumb,
+.thinking-dialog-content::-webkit-scrollbar-thumb,
+:deep(.el-dialog__body::-webkit-scrollbar-thumb) {
+  background: #c0c4cc;
+  border-radius: 3px;
+  transition: background 0.2s;
+}
+
+:deep(.el-scrollbar__wrap::-webkit-scrollbar-thumb:hover),
+:deep(.el-card__body::-webkit-scrollbar-thumb:hover),
+.log-list::-webkit-scrollbar-thumb:hover,
+.subtask-list::-webkit-scrollbar-thumb:hover,
+.thinking-dialog-content::-webkit-scrollbar-thumb:hover,
+:deep(.el-dialog__body::-webkit-scrollbar-thumb:hover) {
+  background: #909399;
 }
 
 .monitor-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 14px;
+  padding: 12px 16px;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  margin-bottom: 10px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  margin-bottom: 12px;
+  transition: box-shadow 0.3s ease;
+}
+
+.monitor-header:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .header-left {
@@ -825,10 +896,16 @@ watch(currentScreenshot, (newVal) => {
 }
 
 .progress-bar-section {
-  padding: 16px 24px;
+  padding: 16px 20px;
   background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease;
+  margin-bottom: 0;
+}
+
+.progress-bar-section:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 .progress-info {
@@ -863,9 +940,15 @@ watch(currentScreenshot, (newVal) => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px;
-  background: #f5f7fa;
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stat-item.success { color: #67c23a; }
@@ -920,10 +1003,11 @@ watch(currentScreenshot, (newVal) => {
 .screenshot-card :deep(.el-card__body) {
   flex: 1;
   overflow: hidden;
-  padding: 0px;
+  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  border-radius: 0 0 16px 16px;
 }
 
 .screenshot-container {
@@ -979,15 +1063,29 @@ watch(currentScreenshot, (newVal) => {
   flex-direction: column;
 }
 
+:deep(.el-card) {
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+  border: none;
+}
+
+:deep(.el-card:hover) {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.05);
+  transform: translateY(-1px);
+}
+
 :deep(.el-card__header) {
-  padding: 12px 16px;
-  border-bottom: 1px solid #ebeef5;
+  padding: 14px 18px;
+  border-bottom: 1px solid #f0f2f5;
+  background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+  border-radius: 16px 16px 0 0 !important;
 }
 
 :deep(.el-card__body) {
   flex: 1;
   overflow-y: auto;
-  padding: 12px;
+  padding: 14px;
 }
 
 .card-header {
@@ -1025,10 +1123,17 @@ watch(currentScreenshot, (newVal) => {
 
 .subtask-item {
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 12px;
   background: #f5f7fa;
   border: 1px solid #ebeef5;
-  transition: all 0.3s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.subtask-item:hover {
+  background: #ecf5ff;
+  border-color: #d9ecff;
+  transform: translateX(2px);
 }
 
 .subtask-item.active {
@@ -1187,13 +1292,20 @@ watch(currentScreenshot, (newVal) => {
 }
 
 .log-item {
-  padding: 10px 12px;
-  border-radius: 4px;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'PingFang SC', 'Microsoft YaHei', monospace;
+  font-size: 13px;
   line-height: 1.6;
   display: flex;
   gap: 10px;
+  transition: all 0.2s ease;
+  margin: 1px 0;
+}
+
+.log-item:hover {
+  transform: translateX(2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .log-item.info {
@@ -1221,32 +1333,11 @@ watch(currentScreenshot, (newVal) => {
   color: #d48806;
   border-left: 3px solid #d48806;
   padding: 6px 12px;
-  flex-wrap: wrap;
-}
-
-.log-item.thinking.collapsed {
-  background: #fffbeb;
-  padding: 4px 12px;
+  align-items: center;
 }
 
 .log-item.thinking .log-level {
   color: #d48806;
-}
-
-.log-item.thinking .log-message {
-  flex: none;
-}
-
-.thinking-toggle {
-  cursor: pointer;
-  font-size: 12px;
-  color: #d48806;
-  flex-shrink: 0;
-  transition: transform 0.2s;
-}
-
-.thinking-toggle:hover {
-  color: #b37400;
 }
 
 .thinking-label {
@@ -1267,22 +1358,135 @@ watch(currentScreenshot, (newVal) => {
   white-space: nowrap;
 }
 
-.thinking-detail {
-  width: 100%;
-  margin-top: 6px;
-  padding: 8px 10px;
-  background: #ffffff;
-  border-radius: 4px;
-  max-height: 500px;
+.view-detail-btn {
+  flex-shrink: 0;
+  color: #d48806;
+  padding: 2px 6px;
+  font-size: 12px;
+}
+
+.view-detail-btn:hover {
+  color: #b37400;
+  background: #fff0d6;
+}
+
+/* 思考详情弹窗样式 */
+.thinking-dialog :deep(.el-dialog) {
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.thinking-dialog :deep(.el-dialog__header) {
+  padding: 0;
+  border-bottom: 1px solid #f0f2f5;
+  background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 24px;
+}
+
+.dialog-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.close-btn {
+  cursor: pointer;
+  font-size: 22px;
+  color: #909399;
+  transition: all 0.2s ease;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.close-btn:hover {
+  color: #f56c6c;
+  background: #fef0f0;
+  transform: rotate(90deg);
+}
+
+.thinking-dialog :deep(.el-dialog__body) {
+  padding: 24px;
+  max-height: 70vh;
   overflow-y: auto;
+  background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
+}
+
+.thinking-dialog :deep(.el-dialog__footer) {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f2f5;
+  background: #fafbfc;
+}
+
+.thinking-dialog :deep(.el-button) {
+  border-radius: 10px;
+  padding: 10px 24px;
+  transition: all 0.2s ease;
+}
+
+.thinking-dialog :deep(.el-button:hover) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.2);
+}
+
+.thinking-dialog-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.thinking-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f5f7fa;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #909399;
+}
+
+.meta-time {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.thinking-content {
+  background: linear-gradient(135deg, #fafbfc 0%, #f5f7fa 100%);
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e4e7ed;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.03);
 }
 
 .thinking-text {
-  font-size: 12px;
-  line-height: 1.6;
-  color: #5a5a5a;
+  margin: 0;
+  font-size: 13px;
+  line-height: 2;
+  color: #4a5568;
   white-space: pre-wrap;
   word-break: break-word;
+  font-family: 'Monaco', 'Menlo', 'Consolas', 'PingFang SC', 'Microsoft YaHei', monospace;
+}
+
+/* 弹窗内页面结构可视化优化 */
+.thinking-dialog :deep(.page-structure-viewer) {
+  margin-top: 16px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
 }
 
 .log-time {

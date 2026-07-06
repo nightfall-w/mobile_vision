@@ -365,6 +365,15 @@ class WorkspaceCRUD:
                 logger.error(f"角色 {role_id} 不存在")
                 raise Exception(f"角色ID {role_id} 不存在")
 
+            # 检查用户是否存在
+            from app.user.models import UserModel
+            user = self.db.execute(
+                select(UserModel).where(UserModel.username == username)
+            ).scalars().first()
+            if not user:
+                logger.error(f"用户 {username} 不存在")
+                raise Exception(f"用户 {username} 不存在")
+
             # 检查是否已在该工作空间中（含软删除）
             member = self.db.execute(
                 select(WorkspaceMember).where(
@@ -374,8 +383,8 @@ class WorkspaceCRUD:
             ).scalars().first()
             if member:
                 if member.is_deleted == 0:
-                    logger.error(f"用户 {username} 已经在此工作空间 {workspace_id} 中")
-                    raise Exception(f"用户 {username} 已经在此工作空间 {workspace_id} 中")
+                    logger.error(f"用户 {username} 已经在此工作空间中")
+                    raise Exception(f"用户 {user.nickname}({username}) 已经在此工作空间中")
                 # 软删除的成员重新加入，恢复记录
                 member.is_deleted = 0
                 member.role_id = role_id
@@ -399,7 +408,7 @@ class WorkspaceCRUD:
         except Exception as e:
             self.db.rollback()
             logger.error(f"添加成员到工作空间异常: {str(e)}")
-            raise Exception("添加成员到工作空间异常")
+            raise
 
     def get_member_by_id(self, member_id: int) -> Optional[WorkspaceMember]:
         """根据ID获取成员"""
@@ -697,13 +706,16 @@ def get_workspace_statistics(workspace_id: int, db: Session, period: str = 'tota
     execution_by_status = {}
     if plan_ids:
         execution_count = db.execute(
-            select(func.count()).select_from(TestTask).where(TestTask.plan_id.in_(plan_ids))
+            select(func.count()).select_from(TestJob)
+            .join(TestTask, TestJob.task_id == TestTask.task_id)
+            .where(TestTask.plan_id.in_(plan_ids))
         ).scalar() or 0
 
         execution_by_status = dict(db.execute(
-            select(TestTask.status, func.count()).select_from(TestTask)
+            select(TestJob.status, func.count()).select_from(TestJob)
+            .join(TestTask, TestJob.task_id == TestTask.task_id)
             .where(TestTask.plan_id.in_(plan_ids))
-            .group_by(TestTask.status)
+            .group_by(TestJob.status)
         ).all())
 
     member_count = db.execute(
@@ -732,13 +744,15 @@ def get_workspace_statistics(workspace_id: int, db: Session, period: str = 'tota
         e = s = 0
         if plan_ids:
             e = db.execute(
-                select(func.count()).select_from(TestTask)
-                .where(TestTask.plan_id.in_(plan_ids), TestTask.create_time >= since)
+                select(func.count()).select_from(TestJob)
+                .join(TestTask, TestJob.task_id == TestTask.task_id)
+                .where(TestTask.plan_id.in_(plan_ids), TestJob.create_time >= since)
             ).scalar() or 0
             s = db.execute(
-                select(func.count()).select_from(TestTask)
-                .where(TestTask.plan_id.in_(plan_ids), TestTask.create_time >= since,
-                       TestTask.status == 'completed')
+                select(func.count()).select_from(TestJob)
+                .join(TestTask, TestJob.task_id == TestTask.task_id)
+                .where(TestTask.plan_id.in_(plan_ids), TestJob.create_time >= since,
+                       TestJob.status == 'completed')
             ).scalar() or 0
         return c, e, s
 
@@ -752,9 +766,12 @@ def get_workspace_statistics(workspace_id: int, db: Session, period: str = 'tota
         ).scalar() or 0
 
     def _period_active_plans(since):
+        if not plan_ids:
+            return 0
         return db.execute(
-            select(func.count(TestTask.plan_id.distinct())).select_from(TestTask)
-            .where(TestTask.plan_id.in_(plan_ids), TestTask.create_time >= since)
+            select(func.count(TestTask.plan_id.distinct())).select_from(TestJob)
+            .join(TestTask, TestJob.task_id == TestTask.task_id)
+            .where(TestTask.plan_id.in_(plan_ids), TestJob.create_time >= since)
         ).scalar() or 0
 
     def _period_new_plans(since):
@@ -775,9 +792,10 @@ def get_workspace_statistics(workspace_id: int, db: Session, period: str = 'tota
         if not plan_ids:
             return {}
         rows = db.execute(
-            select(TestTask.status, func.count()).select_from(TestTask)
-            .where(TestTask.plan_id.in_(plan_ids), TestTask.create_time >= since)
-            .group_by(TestTask.status)
+            select(TestJob.status, func.count()).select_from(TestJob)
+            .join(TestTask, TestJob.task_id == TestTask.task_id)
+            .where(TestTask.plan_id.in_(plan_ids), TestJob.create_time >= since)
+            .group_by(TestJob.status)
         ).all()
         return dict(rows)
 

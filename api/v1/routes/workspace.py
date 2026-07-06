@@ -370,12 +370,21 @@ def list_members_endpoint(
 
     members, total_count = get_members_by_workspace_with_count(workspace_id, page_size, (page_num - 1) * page_size, db)
 
+    # 获取所有用户名，批量查询用户信息
+    usernames = [member.username for member in members]
+    users = db.query(UserModel).filter(UserModel.username.in_(usernames)).all() if usernames else []
+    user_map = {user.username: user for user in users}
+
     member_details = []
     for member in members:
         role = get_role_by_id(member.role_id, db)
+        user = user_map.get(member.username)
         member_details.append({
             "member_id": member.id,
-            "member_info": {"username": member.username},
+            "member_info": {
+                "username": member.username,
+                "nickname": user.nickname if user else member.username
+            },
             "role": role.to_dict() if role else None,
             "join_time": member.join_time
         })
