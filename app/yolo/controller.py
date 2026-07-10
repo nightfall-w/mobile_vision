@@ -79,7 +79,7 @@ def create_dataset(name: str, description: str = "", classes: List[str] = None) 
     dataset_dir.mkdir(parents=True, exist_ok=True)
 
     if classes is None:
-        classes = ['object']
+        classes = []
 
     with get_db_session() as db:
         dataset = YoloDataset(

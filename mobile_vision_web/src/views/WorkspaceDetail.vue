@@ -12,9 +12,9 @@
               <span class="info-label">当前空间：</span>
               <span class="info-value font-medium">{{ workspaceData.name }}</span>
             </div>
-            <el-tag v-for="manager in workspaceData.managers" :key="manager.username" size="small" class="manager-tag">
+            <el-tag size="small" class="manager-tag">
               <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ manager.nickname }}
+              管理员：{{ workspaceData.managers?.map(m => m.nickname).join('、') }}
             </el-tag>
           </div>
         </div>
@@ -159,7 +159,7 @@
               {{ row.join_time ? new Date(row.join_time).toLocaleString('zh-CN') : '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="140" fixed="right">
+          <el-table-column label="操作" width="180" fixed="right">
             <template #default="{ row }">
               <div class="table-actions">
                 <button class="action-btn edit-btn" @click="openEditMemberDialog(row)">
@@ -530,6 +530,7 @@ const handleAddMember = async () => {
     if (res.code === 0) {
       ElMessage.success('添加成员成功');
       addMemberDialogVisible.value = false;
+      loadStatistics();
       loadMembers();
     } else {
       ElMessage.warning(res.message || '添加成员失败，请检查用户是否存在');
@@ -561,6 +562,7 @@ const handleEditMember = async () => {
     if (res.code === 0) {
       ElMessage.success('修改角色成功');
       editMemberDialogVisible.value = false;
+      loadStatistics();
       loadMembers();
     } else {
       ElMessage.error(res.message || '修改角色失败');
@@ -584,6 +586,7 @@ const confirmRemoveMember = async () => {
       ElMessage.success('移除成员成功');
       deleteDialogVisible.value = false;
       deleteMemberData.value = null;
+      loadStatistics();
       loadMembers();
     } else {
       ElMessage.error(res.message || '移除成员失败');
@@ -595,11 +598,19 @@ const confirmRemoveMember = async () => {
 };
 
 const filteredMembers = computed(() => {
-  if (!memberSearch.value) return members.value;
-  const search = memberSearch.value.toLowerCase();
-  return members.value.filter(m =>
-    m.member_info?.username?.toLowerCase().includes(search)
-  );
+  let list = members.value;
+  if (memberSearch.value) {
+    const search = memberSearch.value.toLowerCase();
+    list = list.filter(m =>
+      m.member_info?.username?.toLowerCase().includes(search)
+    );
+  }
+  // 管理员排在最前面
+  return [...list].sort((a, b) => {
+    const aAdmin = a.role?.role_name === '管理员' ? 0 : 1;
+    const bAdmin = b.role?.role_name === '管理员' ? 0 : 1;
+    return aAdmin - bAdmin;
+  });
 });
 
 // 根据用户名生成头像颜色
@@ -1553,6 +1564,7 @@ onMounted(() => {
   transition: all 0.2s ease;
   border: 1px solid transparent;
   background: transparent;
+  white-space: nowrap;
 }
 
 /* 编辑角色按钮 - 柔和的蓝色调 */

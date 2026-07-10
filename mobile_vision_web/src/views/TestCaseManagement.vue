@@ -11,23 +11,14 @@
           <div class="header-info">
             <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
             <el-tag
-              v-for="manager in managers"
-              :key="manager.username"
+              v-if="managers.length > 0"
               size="small"
               class="manager-tag"
             >
               <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ manager.nickname }}
+              管理员：{{ managerNames }}
             </el-tag>
           </div>
-          <el-button
-            type="primary"
-            @click="goToCreate"
-            class="create-button"
-          >
-            <el-icon :size="16" class="mr-1"><Plus/></el-icon>
-            新建用例
-          </el-button>
         </div>
       </div>
 
@@ -70,6 +61,10 @@
         <el-button @click="resetSearch" class="reset-btn">
           <el-icon><Refresh/></el-icon>
           重置
+        </el-button>
+        <el-button type="primary" @click="goToCreate" style="margin-left: auto">
+          <el-icon :size="16" class="mr-1"><Plus/></el-icon>
+          新建用例
         </el-button>
       </div>
     </div>
@@ -127,33 +122,12 @@
             {{ formatTime(row.update_time) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" fixed="right">
+        <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
-            <div class="action-buttons">
-              <el-button
-                type="info"
-                size="small"
-                @click="openViewDialog(row)"
-                class="view-btn"
-              >
-                详情
-              </el-button>
-              <el-button
-                type="primary"
-                size="small"
-                @click="goToEdit(row.case_id)"
-                class="edit-btn"
-              >
-                编辑
-              </el-button>
-              <el-button
-                type="danger"
-                size="small"
-                @click="openDeleteDialog(row)"
-                class="delete-btn"
-              >
-                删除
-              </el-button>
+            <div class="action-group">
+              <span class="action-btn action-view" @click="openViewDialog(row)">详情</span>
+              <span class="action-btn action-edit" @click="goToEdit(row.case_id)">编辑</span>
+              <span class="action-btn action-delete" @click="openDeleteDialog(row)">删除</span>
             </div>
           </template>
         </el-table-column>
@@ -176,56 +150,79 @@
 
     <el-dialog
       v-model="viewDialogVisible"
-      title="用例详情"
       width="800px"
       :close-on-click-modal="false"
+      class="tc-detail-dialog"
     >
-      <div v-if="viewCase" class="view-content">
-        <div class="view-section">
-          <h3 class="section-title">基本信息</h3>
-          <div class="info-grid">
-            <div class="info-item">
-              <span class="info-label">用例名称</span>
-              <span class="info-value">{{ viewCase.case_name }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">等级</span>
-              <el-tag :type="getLevelTagType(viewCase.level)" size="small">
-                {{ viewCase.level_display }}
-              </el-tag>
-            </div>
-            <div class="info-item">
-              <span class="info-label">状态</span>
-              <el-tag :type="getStatusTagType(viewCase.status)" size="small">
-                {{ viewCase.status_display }}
-              </el-tag>
-            </div>
-            <div class="info-item">
-              <span class="info-label">更新人</span>
-              <span class="info-value">{{ viewCase.updater_name }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">创建时间</span>
-              <span class="info-value">{{ formatTime(viewCase.create_time) }}</span>
-            </div>
-            <div class="info-item">
-              <span class="info-label">更新时间</span>
-              <span class="info-value">{{ formatTime(viewCase.update_time) }}</span>
+      <template #header>
+        <div class="tc-detail-header">
+          <span class="tc-detail-header-icon"><el-icon><Document /></el-icon></span>
+          <div>
+            <h2 class="tc-detail-header-title">用例详情</h2>
+            <p class="tc-detail-header-desc">查看测试用例的完整信息</p>
+          </div>
+        </div>
+      </template>
+      <div v-if="viewCase" class="tc-detail-body">
+        <!-- 基本信息 -->
+        <div class="tc-detail-section">
+          <div class="tc-detail-section-header">
+            <span class="tc-detail-section-icon tc-section-icon--info"><el-icon><InfoFilled /></el-icon></span>
+            <h3 class="tc-detail-section-title">基本信息</h3>
+          </div>
+          <div class="tc-detail-section-body">
+            <div class="tc-detail-grid">
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">用例名称</span>
+                <span class="tc-detail-value">{{ viewCase.case_name }}</span>
+              </div>
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">等级</span>
+                <span class="tc-detail-badge" :class="'tc-badge--level-' + viewCase.level.toLowerCase()">{{ viewCase.level_display }}</span>
+              </div>
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">状态</span>
+                <span class="tc-detail-badge" :class="'tc-badge--status-' + viewCase.status">{{ viewCase.status_display }}</span>
+              </div>
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">更新人</span>
+                <span class="tc-detail-value">{{ viewCase.updater_name }}</span>
+              </div>
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">创建时间</span>
+                <span class="tc-detail-value">{{ formatTime(viewCase.create_time) }}</span>
+              </div>
+              <div class="tc-detail-item">
+                <span class="tc-detail-label">更新时间</span>
+                <span class="tc-detail-value">{{ formatTime(viewCase.update_time) }}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="view-section">
-          <h3 class="section-title">测试任务正文</h3>
-          <div class="content-box">
-            <pre class="content-text">{{ viewCase.content || '无' }}</pre>
+        <!-- 测试任务正文 -->
+        <div class="tc-detail-section">
+          <div class="tc-detail-section-header">
+            <span class="tc-detail-section-icon tc-section-icon--content"><el-icon><Edit /></el-icon></span>
+            <h3 class="tc-detail-section-title">测试任务正文</h3>
+          </div>
+          <div class="tc-detail-section-body">
+            <div class="tc-detail-content-box">
+              <pre class="tc-detail-content-text">{{ viewCase.content || '无' }}</pre>
+            </div>
           </div>
         </div>
 
-        <div class="view-section">
-          <h3 class="section-title">APP使用说明</h3>
-          <div class="content-box">
-            <pre class="content-text">{{ viewCase.usage_instructions || '无' }}</pre>
+        <!-- APP使用说明 -->
+        <div class="tc-detail-section">
+          <div class="tc-detail-section-header">
+            <span class="tc-detail-section-icon tc-section-icon--usage"><el-icon><Document /></el-icon></span>
+            <h3 class="tc-detail-section-title">APP使用说明</h3>
+          </div>
+          <div class="tc-detail-section-body">
+            <div class="tc-detail-content-box">
+              <pre class="tc-detail-content-text">{{ viewCase.usage_instructions || '无' }}</pre>
+            </div>
           </div>
         </div>
       </div>
@@ -260,7 +257,7 @@
 <script>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Plus, Search, Refresh, Edit, Delete, Warning, InfoFilled, User } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Edit, Delete, Warning, InfoFilled, User, Document } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { deleteTestCase, getTestCaseList, getTestCaseDetail, getWorkspaceDetail } from '@/network/api.js'
 
@@ -274,7 +271,8 @@ export default {
     Delete,
     Warning,
     InfoFilled,
-    User
+    User,
+    Document
   },
   setup() {
     const route = useRoute()
@@ -305,6 +303,7 @@ export default {
 
     const workspaceName = ref('')
     const managers = ref([])
+    const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 
     const tableHeight = computed(() => {
       return window.innerHeight - 320
@@ -451,6 +450,7 @@ export default {
       viewDialogVisible,
       workspaceName,
       managers,
+      managerNames,
       viewCase,
       tableHeight,
       fetchCases,
@@ -528,15 +528,16 @@ export default {
 
 .header-right {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .header-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .info-text {
@@ -551,16 +552,11 @@ export default {
 }
 
 .manager-tag {
-  background: #ecf5ff;
-  border-color: #d9ecff;
-  color: #409eff;
+  background: #dbeafe;
+  color: #2563eb;
+  border: none;
 }
 
-.create-button {
-  background: linear-gradient(135deg, #4080ff 0%, #366fc9 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(64, 128, 255, 0.3);
-}
 
 .search-bar {
   display: flex;
@@ -599,47 +595,65 @@ export default {
   padding: 1rem;
 }
 
-.action-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
+:deep(.el-table .el-table__cell) {
+  padding: 10px 0;
 }
 
-.action-buttons .el-button {
-  padding: 6px 12px;
-  border: none;
+.action-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.action-btn {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.6;
+  user-select: none;
+}
+
+.action-edit {
+  color: #3182ce;
+  background: #ebf8ff;
+  border: 1px solid #bee3f8;
+}
+
+.action-edit:hover {
+  background: #d4edfa;
+  border-color: #90cdf4;
+}
+
+.action-view {
+  color: #718096;
+  background: #f7fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.action-view:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.action-delete {
+  color: #e53e3e;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+}
+
+.action-delete:hover {
+  background: #ffebeb;
+  border-color: #feb2b2;
 }
 
 .id-text {
   font-weight: 600;
   color: #409eff;
-}
-
-.view-btn {
-  color: #409eff;
-  background: transparent;
-}
-
-.view-btn:hover {
-  background: rgba(64, 158, 255, 0.1);
-}
-
-.edit-btn {
-  color: #409eff;
-  background: transparent;
-}
-
-.edit-btn:hover {
-  background: rgba(64, 158, 255, 0.1);
-}
-
-.delete-btn {
-  color: #f56c6c;
-  background: transparent;
-}
-
-.delete-btn:hover {
-  background: rgba(245, 108, 108, 0.1);
 }
 
 .table-footer {
@@ -656,66 +670,146 @@ export default {
   z-index: 100;
 }
 
-.view-content {
-  padding: 10px 0;
+/* ===== 用例详情弹窗 ===== */
+.tc-detail-dialog :deep(.el-dialog__header) {
+  padding: 0;
 }
 
-.view-section {
-  margin-bottom: 24px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #ebeef5;
+.tc-detail-dialog :deep(.el-dialog__body) {
+  padding: 0 24px 20px;
 }
 
-.view-section:last-child {
-  border-bottom: none;
-  margin-bottom: 0;
-  padding-bottom: 0;
+.tc-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.section-title {
-  font-size: 14px;
+.tc-detail-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #5b6ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.tc-detail-header-title {
+  margin: 0;
+  font-size: 16px;
   font-weight: 600;
-  color: #303133;
-  margin-bottom: 16px;
-  padding-left: 8px;
-  border-left: 3px solid #409eff;
+  color: #111827;
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+.tc-detail-header-desc {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: #9ca3af;
 }
 
-.info-item {
+.tc-detail-body {
   display: flex;
   flex-direction: column;
+  gap: 16px;
+  padding: 20px 0 4px;
 }
 
-.info-label {
-  font-size: 13px;
-  color: #909399;
-  margin-bottom: 4px;
+.tc-detail-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  border-left: 2px solid #5b6ef7;
 }
 
-.info-value {
-  font-size: 13px;
-  color: #606266;
+.tc-detail-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f5f7fd;
+  border-bottom: 1px solid #e5e7eb;
 }
 
-.content-box {
-  background: #f8fafc;
-  border-radius: 8px;
+.tc-detail-section-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.tc-section-icon--info {
+  background: #e8f0fe;
+  color: #4b8af4;
+}
+
+.tc-section-icon--content {
+  background: #f0e8fe;
+  color: #7c5ce7;
+}
+
+.tc-section-icon--usage {
+  background: #fef3e8;
+  color: #e8962e;
+}
+
+.tc-detail-section-title {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.tc-detail-section-body {
   padding: 16px;
-  max-height: 300px;
+}
+
+.tc-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 24px;
+}
+
+.tc-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tc-detail-label {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 500;
+}
+
+.tc-detail-value {
+  font-size: 13.5px;
+  color: #1f2937;
+}
+
+.tc-detail-content-box {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px 16px;
+  max-height: 260px;
   overflow-y: auto;
 }
 
-.content-text {
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #303133;
+.tc-detail-content-text {
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #1f2937;
   white-space: pre-wrap;
   word-break: break-all;
   margin: 0;
@@ -726,5 +820,53 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ===== SwiftUI Badges ===== */
+.tc-detail-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.2px;
+  width: fit-content;
+}
+
+.tc-badge--level-p0 {
+  background: #fde8e8;
+  color: #c53030;
+}
+
+.tc-badge--level-p1 {
+  background: #fef3cd;
+  color: #b7791f;
+}
+
+.tc-badge--level-p2 {
+  background: #e8edf3;
+  color: #4a5568;
+}
+
+.tc-badge--level-p3 {
+  background: #e6f7e6;
+  color: #276749;
+}
+
+.tc-badge--status-debugging {
+  background: #fef3cd;
+  color: #b7791f;
+}
+
+.tc-badge--status-completed {
+  background: #e6f7e6;
+  color: #276749;
+}
+
+.tc-badge--status-disabled {
+  background: #e8edf3;
+  color: #a0aec0;
 }
 </style>

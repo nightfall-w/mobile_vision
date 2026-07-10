@@ -10,19 +10,14 @@
           <div class="header-info">
             <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
             <el-tag
-              v-for="manager in managers"
-              :key="manager.username"
+              v-if="managers.length > 0"
               size="small"
               class="manager-tag"
             >
               <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ manager.nickname }}
+              管理员：{{ managerNames }}
             </el-tag>
           </div>
-          <el-button type="primary" @click="refreshTasks" class="refresh-button">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
         </div>
       </div>
 
@@ -63,6 +58,10 @@
       <el-button @click="resetSearch" class="reset-btn">
         <el-icon><Refresh/></el-icon>
         重置
+      </el-button>
+      <el-button type="primary" @click="refreshTasks" style="margin-left: auto">
+        <el-icon><Refresh /></el-icon>
+        刷新
       </el-button>
     </div>
     </div>
@@ -168,24 +167,18 @@
         <el-table-column prop="create_time" label="创建时间" width="180" />
         <el-table-column label="操作" width="100" fixed="right">
           <template #default="{ row }">
-            <el-button
-                  v-if="row.status === 'running' || row.status === 'pending'"
-                  type="danger"
-                  size="small"
-                  text
-                  @click="handleAbortTask(row)"
-                >
-                  放弃
-                </el-button>
-                <el-button
-                  v-if="row.status !== 'running'"
-                  type="danger"
-                  size="small"
-                  text
-                  @click="handleDeleteTask(row)"
-                >
-                  删除
-                </el-button>
+            <div class="action-group">
+              <span
+                v-if="row.status === 'running' || row.status === 'pending'"
+                class="action-btn action-run"
+                @click="handleAbortTask(row)"
+              >放弃</span>
+              <span
+                v-if="row.status !== 'running'"
+                class="action-btn action-delete"
+                @click="handleDeleteTask(row)"
+              >删除</span>
+            </div>
           </template>
         </el-table-column>
       </el-table>
@@ -264,6 +257,7 @@ const searchForm = reactive({
 
 const workspaceName = ref('')
 const managers = ref([])
+const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 const deleteTaskDialogVisible = ref(false)
 const deleteTaskData = ref(null)
 
@@ -532,15 +526,16 @@ onMounted(() => {
 
 .header-right {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .header-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .info-text {
@@ -555,16 +550,11 @@ onMounted(() => {
 }
 
 .manager-tag {
-  background: #ecf5ff;
-  border-color: #d9ecff;
-  color: #409eff;
+  background: #dbeafe;
+  color: #2563eb;
+  border: none;
 }
 
-.refresh-button {
-  background: linear-gradient(135deg, #4080ff 0%, #366fc9 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(64, 128, 255, 0.3);
-}
 
 .search-bar {
   display: flex;
@@ -594,6 +584,48 @@ onMounted(() => {
 .search-btn:hover,
 .reset-btn:hover {
   background: #e8eef3;
+}
+
+.action-group {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+  justify-content: center;
+}
+
+.action-btn {
+  display: inline-block;
+  padding: 2px 7px;
+  font-size: 12px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  line-height: 1.6;
+  user-select: none;
+}
+
+.action-run {
+  color: #d69e2e;
+  background: #fffff0;
+  border: 1px solid #fefcbf;
+}
+
+.action-run:hover {
+  background: #fef9c3;
+  border-color: #fde68a;
+}
+
+.action-delete {
+  color: #e53e3e;
+  background: #fff5f5;
+  border: 1px solid #fed7d7;
+}
+
+.action-delete:hover {
+  background: #ffebeb;
+  border-color: #feb2b2;
 }
 
 .table-container {

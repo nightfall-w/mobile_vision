@@ -43,12 +43,26 @@ class Workspace(Base):
         """
         转换为字典
         :param db: 数据库会话，用于获取管理员用户信息
+        管理员信息从 workspace_member 表派生（角色为"管理员"的成员），保证数据一致性
         """
         manager_info = []
-        
-        if db and self.manager and isinstance(self.manager, list):
+
+        if db:
+            # 从 workspace_member 表中查询管理员，单源一致
             from app.user.controller import get_user_by_username
-            for username in self.manager:
+            from sqlalchemy import select
+
+            admin_members = db.execute(
+                select(WorkspaceMember.username).join(
+                    MemberRole, WorkspaceMember.role_id == MemberRole.role_id
+                ).where(
+                    WorkspaceMember.workspace_id == self.workspace_id,
+                    WorkspaceMember.is_deleted == 0,
+                    MemberRole.role_name == MemberRole.ADMIN
+                )
+            ).scalars().all()
+
+            for username in admin_members:
                 user = get_user_by_username(db=db, username=username)
                 if user:
                     manager_info.append({
@@ -61,7 +75,7 @@ class Workspace(Base):
                         "nickname": username
                     })
         else:
-            # 没有数据库连接，直接返回用户名
+            # 没有数据库连接，fallback 到 manager 字段
             if self.manager and isinstance(self.manager, list):
                 manager_info = [{
                     "username": m,

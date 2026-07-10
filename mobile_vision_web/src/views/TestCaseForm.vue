@@ -1,113 +1,112 @@
 <template>
-  <div class="testcase-form-wrapper">
-    <div class="page-header">
-      <div class="header-left">
-        <button class="back-button" @click="goBack">
-          <el-icon class="icon">
-            <ArrowLeft />
-          </el-icon>
-          <span>返回</span>
-        </button>
-        <div class="title-group">
-          <h1 class="page-title">{{ isEdit ? '编辑用例' : '新建用例' }}</h1>
-          <p class="page-subtitle">{{ isEdit ? '修改已有的测试用例信息' : '创建新的测试用例' }}</p>
+  <div class="tc-page">
+    <!-- Header -->
+    <header class="tc-header">
+      <div class="tc-header-inner">
+        <div class="tc-header-left">
+          <el-button class="tc-back-btn" @click="goBack">
+            <el-icon><ArrowLeft /></el-icon>
+            <span>返回</span>
+          </el-button>
+          <div class="tc-header-info">
+            <h1 class="tc-title">{{ isEdit ? '编辑用例' : '新建用例' }}</h1>
+            <p class="tc-subtitle">{{ isEdit ? '修改已有的测试用例信息' : '创建新的测试用例' }}</p>
+          </div>
+        </div>
+        <div class="tc-header-right">
+          <el-button type="primary" class="tc-save-btn" @click="saveCase">
+            <el-icon><Check /></el-icon>
+            <span>{{ isEdit ? '保存修改' : '创建用例' }}</span>
+          </el-button>
         </div>
       </div>
-      <div class="header-right">
-        <button class="save-button" @click="saveCase">
-          <el-icon class="icon">
-            <Check />
-          </el-icon>
-          <span>{{ isEdit ? '保存修改' : '创建用例' }}</span>
-        </button>
-      </div>
-    </div>
+    </header>
 
-    <div class="content-container">
-      <aside class="sidebar">
-        <div class="panel">
-          <div class="panel-header">
-            <h2 class="panel-title">基本信息</h2>
+    <div class="tc-body">
+      <!-- 基本信息卡片 -->
+      <section class="tc-card">
+        <div class="tc-card-header">
+          <div class="tc-card-header-left">
+            <span class="tc-card-icon">
+              <el-icon><Document /></el-icon>
+            </span>
+            <div>
+              <h2 class="tc-card-title">基本信息</h2>
+              <p class="tc-card-desc">配置用例的名称、优先级和状态</p>
+            </div>
           </div>
-          <div class="panel-body">
-            <div class="form-group">
-              <label class="form-label">用例名称</label>
-              <input
-                v-model="form.case_name"
-                type="text"
-                class="form-input"
-                placeholder="请输入用例名称"
-              />
+          <div v-if="isEdit" class="tc-card-meta">
+            <span class="tc-meta-tag">创建 {{ formatTime(form.create_time) }}</span>
+            <span class="tc-meta-tag">更新 {{ formatTime(form.update_time) }}</span>
+          </div>
+        </div>
+        <div class="tc-card-body">
+          <div class="tc-field-row">
+            <div class="tc-field tc-field--grow">
+              <label class="tc-label">
+                <span class="tc-label-text">用例名称</span>
+              </label>
+              <el-input v-model="form.case_name" placeholder="例如：登录功能验证" class="tc-input" />
             </div>
-            
-            <div class="form-group">
-              <label class="form-label">优先级</label>
-              <select v-model="form.level" class="form-select">
-                <option value="P0">P0</option>
-                <option value="P1">P1</option>
-                <option value="P2">P2</option>
-                <option value="P3">P3</option>
-              </select>
+            <div class="tc-field">
+              <label class="tc-label">
+                <span class="tc-label-text">优先级</span>
+              </label>
+              <el-select v-model="form.level" class="tc-select" :class="'tc-level--' + form.level.toLowerCase()">
+                <el-option label="P0 - 关键" value="P0" />
+                <el-option label="P1 - 重要" value="P1" />
+                <el-option label="P2 - 一般" value="P2" />
+                <el-option label="P3 - 建议" value="P3" />
+              </el-select>
             </div>
-            
-            <div class="form-group">
-              <label class="form-label">状态</label>
-              <select v-model="form.status" class="form-select">
-                <option value="debugging">调试中</option>
-                <option value="completed">已完成</option>
-                <option value="disabled">禁用</option>
-              </select>
+            <div class="tc-field">
+              <label class="tc-label">
+                <span class="tc-label-text">状态</span>
+              </label>
+              <el-select v-model="form.status" class="tc-select">
+                <el-option label="调试中" value="debugging" />
+                <el-option label="已完成" value="completed" />
+                <el-option label="已禁用" value="disabled" />
+              </el-select>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="panel" v-if="isEdit">
-          <div class="panel-header">
-            <h2 class="panel-title">时间信息</h2>
-          </div>
-          <div class="panel-body">
-            <div class="form-group">
-              <label class="form-label">创建时间</label>
-              <input
-                :value="formatTime(form.create_time)"
-                type="text"
-                class="form-input disabled"
-                disabled
-              />
-            </div>
-            <div class="form-group">
-              <label class="form-label">更新时间</label>
-              <input
-                :value="formatTime(form.update_time)"
-                type="text"
-                class="form-input disabled"
-                disabled
-              />
+      <!-- 正文编辑卡片 -->
+      <section class="tc-card tc-card--editor">
+        <div class="tc-card-header">
+          <div class="tc-card-header-left">
+            <span class="tc-card-icon tc-card-icon--editor">
+              <el-icon><Edit /></el-icon>
+            </span>
+            <div>
+              <h2 class="tc-card-title">{{ activeTab === 'content' ? '测试任务正文' : 'APP 使用说明' }}</h2>
+              <p class="tc-card-desc">{{ activeTab === 'content' ? '描述测试步骤和预期结果' : '告诉大模型如何使用这个应用' }}</p>
             </div>
           </div>
-        </div>
-      </aside>
-
-      <section class="editor-area">
-        <div class="editor-card">
-          <div class="tabs-wrapper">
+          <div class="tc-editor-actions">
             <button
               v-for="tab in tabs"
               :key="tab.name"
-              :class="['tab-button', { active: activeTab === tab.name }]"
+              :class="['tc-tab', { active: activeTab === tab.name }]"
               @click="activeTab = tab.name"
             >
               {{ tab.label }}
-              <span class="tab-indicator" v-if="activeTab === tab.name"></span>
             </button>
           </div>
-          
-          <div class="editor-content">
+        </div>
+        <div class="tc-card-body tc-card-body--editor">
+          <div class="tc-textarea-wrap">
             <textarea
               v-model="currentEditorContent"
-              class="editor-textarea"
-              :placeholder="activeTab === 'content' ? '请输入测试任务内容...' : '请输入 APP 使用说明，告诉大模型如何使用这个应用...'"
+              class="tc-textarea"
+              :placeholder="activeTab === 'content' ? '输入测试任务内容，支持 Markdown 格式...' : '描述 APP 的使用方法，帮助大模型理解如何操作...'"
             ></textarea>
+          </div>
+          <div class="tc-textarea-footer">
+            <span class="tc-char-count">{{ currentEditorContent.length }} 字符</span>
+            <span class="tc-format-hint">支持 Markdown</span>
           </div>
         </div>
       </section>
@@ -118,7 +117,7 @@
 <script>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Check } from '@element-plus/icons-vue'
+import { ArrowLeft, Check, Document, Edit } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { createTestCase, updateTestCase, getTestCaseDetail } from '@/network/api.js'
 
@@ -126,7 +125,9 @@ export default {
   name: 'TestCaseForm',
   components: {
     ArrowLeft,
-    Check
+    Check,
+    Document,
+    Edit
   },
   setup() {
     const route = useRoute()
@@ -136,7 +137,7 @@ export default {
 
     const isEdit = computed(() => !!caseId)
     const activeTab = ref('content')
-    
+
     const tabs = [
       { name: 'content', label: '测试任务正文' },
       { name: 'usage', label: 'APP使用说明' }
@@ -255,353 +256,410 @@ export default {
 </script>
 
 <style scoped>
-:root {
-  --primary-color: #4080ff;
-  --primary-hover: #366fc9;
-  --text-primary: #1f2d3d;
-  --text-secondary: #646a73;
-  --border-color: #e8eef3;
-  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+/* ===== Reset ===== */
+.tc-page {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f3f4f6;
 }
 
-.testcase-form-wrapper {
-  min-height: 100%;
-  background: #f5f5f5;
-  padding: 0;
+/* ===== Header ===== */
+.tc-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
 }
 
-.page-header {
+.tc-header-inner {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 16px 24px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: var(--shadow-sm);
-  margin-bottom: 20px;
+  padding: 16px 16px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.header-left {
+.tc-header-left {
   display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.back-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: #f5f7fa;
-  border: 1px solid #e4e8ec;
-  border-radius: 8px;
-  color: #646a73;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.back-button:hover {
-  background: #e8eef3;
-  border-color: #d0d5d9;
-}
-
-.back-button .icon {
-  width: 16px;
-  height: 16px;
-}
-
-.title-group {
-  display: flex;
-  flex-direction: column;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.page-subtitle {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--text-secondary);
-}
-
-.header-right {
-  display: flex;
-  gap: 12px;
-}
-
-.save-button {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
-  background: #4080ff;
-  border: none;
-  border-radius: 8px;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(64, 128, 255, 0.3);
-  transition: all 0.3s ease;
-}
-
-.save-button:hover {
-  background: #366fc9;
-  box-shadow: 0 6px 16px rgba(64, 128, 255, 0.4);
-  transform: translateY(-1px);
-}
-
-.save-button .icon {
-  width: 16px;
-  height: 16px;
-  color: #ffffff;
-}
-
-.content-container {
-  display: flex;
-  gap: 24px;
-}
-
-.sidebar {
-  width: 320px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
   gap: 20px;
 }
 
-.panel {
+.tc-back-btn {
+  border: none;
+  background: #f3f4f6;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  padding: 8px 14px;
+  border-radius: 8px;
+  transition: background 0.15s ease;
+}
+
+.tc-back-btn:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.tc-header-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tc-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+
+.tc-subtitle {
+  margin: 0;
+  font-size: 12.5px;
+  color: #6b7280;
+}
+
+.tc-save-btn {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 22px;
+  background: #2563eb;
+  border-color: #2563eb;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+  transition: all 0.15s ease;
+}
+
+.tc-save-btn:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.4);
+}
+
+/* ===== Body ===== */
+.tc-body {
+  flex: 1;
+  padding: 16px 16px;
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ===== Card ===== */
+.tc-card {
   background: #ffffff;
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   overflow: hidden;
-  transition: all 0.3s ease;
+  flex-shrink: 0;
 }
 
-.panel:hover {
-  box-shadow: var(--shadow-lg);
+.tc-card--editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex-shrink: 1;
 }
 
-.panel-header {
-  padding: 16px 20px;
-  border-bottom: 1px solid #f0f2f5;
-  background: linear-gradient(180deg, #fafbfc 0%, #ffffff 100%);
+.tc-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 16px;
 }
 
-.panel-title {
+.tc-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.tc-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eff6ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #2563eb;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tc-card-icon--editor {
+  background: #f5f3ff;
+  color: #7c3aed;
+}
+
+.tc-card-title {
   margin: 0;
   font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #111827;
 }
 
-.panel-body {
-  padding: 20px;
+.tc-card-desc {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
-.form-group {
-  margin-bottom: 20px;
+.tc-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.form-group:last-child {
-  margin-bottom: 0;
-}
-
-.form-label {
-  display: block;
-  margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #475669;
-}
-
-.form-input {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  background: #fafbfc;
-  border: 1px solid #d9dde3;
+.tc-meta-tag {
+  font-size: 11px;
+  color: #9ca3af;
+  background: #f9fafb;
+  padding: 3px 10px;
   border-radius: 10px;
-  font-size: 14px;
-  color: var(--text-primary);
-  transition: all 0.3s ease;
-  box-sizing: border-box;
+  border: 1px solid #f3f4f6;
+  white-space: nowrap;
 }
 
-.form-input:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(64, 128, 255, 0.1);
+.tc-card-body {
+  padding: 20px 16px;
 }
 
-.form-input::placeholder {
-  color: #8f959e;
+.tc-card-body--editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 20px;
+  min-height: 0;
 }
 
-.form-input.disabled {
-  background: #f5f7fa;
-  color: #8f959e;
-  cursor: not-allowed;
+/* ===== Fields ===== */
+.tc-field-row {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
 }
 
-.form-select {
-  width: 100%;
-  height: 44px;
-  padding: 0 14px;
-  background: #fafbfc;
-  border: 1px solid #d9dde3;
-  border-radius: 10px;
-  font-size: 14px;
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23646a73' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
+.tc-field {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-shrink: 0;
 }
 
-.form-select:focus {
-  outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(64, 128, 255, 0.1);
-}
-
-.editor-area {
+.tc-field--grow {
   flex: 1;
   min-width: 0;
 }
 
-.editor-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: var(--shadow-md);
-  overflow: hidden;
-  height: calc(100vh - 200px);
+.tc-label {
   display: flex;
-  flex-direction: column;
-  transition: all 0.3s ease;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+  width: 70px;
 }
 
-.editor-card:hover {
-  box-shadow: var(--shadow-lg);
-}
-
-.tabs-wrapper {
-  display: flex;
-  border-bottom: 1px solid #f0f2f5;
-  background: #fafbfc;
-}
-
-.tab-button {
-  position: relative;
-  padding: 16px 32px;
-  background: transparent;
-  border: none;
-  font-size: 14px;
+.tc-label-text {
+  font-size: 12.5px;
   font-weight: 500;
-  color: #646a73;
-  cursor: pointer;
-  transition: all 0.3s ease;
+  color: #374151;
+  white-space: nowrap;
 }
 
-.tab-button:hover {
-  color: var(--primary-color);
-  background: rgba(64, 128, 255, 0.05);
+.tc-input {
+  width: 100%;
 }
 
-.tab-button.active {
-  color: var(--primary-color);
+.tc-input .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #f9fafb;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.tc-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.tc-input .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #2563eb inset;
   background: #ffffff;
 }
 
-.tab-indicator {
-  position: absolute;
-  bottom: 0;
-  left: 24px;
-  right: 24px;
-  height: 2px;
-  background: var(--primary-color);
-  border-radius: 1px;
+.tc-input .el-input__inner {
+  height: 38px;
+  font-size: 14px;
 }
 
-.editor-content {
+.tc-input .el-input__inner::placeholder {
+  color: #9ca3af;
+}
+
+.tc-select {
+  width: 150px;
+}
+
+.tc-select .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #f9fafb;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.tc-select .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.tc-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #2563eb inset;
+  background: #ffffff;
+}
+
+.tc-select .el-input__inner {
+  height: 38px;
+  font-size: 14px;
+}
+
+/* ===== Editor tabs ===== */
+.tc-editor-actions {
+  display: flex;
+  gap: 2px;
+  background: #f3f4f6;
+  padding: 3px;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.tc-tab {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tc-tab:hover {
+  color: #374151;
+}
+
+.tc-tab.active {
+  background: #ffffff;
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* ===== Textarea ===== */
+.tc-textarea-wrap {
   flex: 1;
-  padding: 20px;
-  overflow: hidden;
+  position: relative;
+  min-height: 0;
 }
 
-.editor-textarea {
+.tc-textarea {
   width: 100%;
   height: 100%;
-  min-height: 300px;
-  padding: 16px;
-  background: #f8fafc;
-  border: 1px solid #e8eef3;
-  border-radius: 12px;
-  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  min-height: 180px;
+  padding: 18px 20px;
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  font-family: 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 14px;
-  line-height: 1.6;
-  color: var(--text-primary);
+  line-height: 1.75;
+  color: #111827;
   resize: none;
-  transition: all 0.3s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
   box-sizing: border-box;
 }
 
-.editor-textarea:focus {
+.tc-textarea:focus {
   outline: none;
-  border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(64, 128, 255, 0.1);
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  background: #ffffff;
 }
 
-.editor-textarea::placeholder {
-  color: #8f959e;
+.tc-textarea::placeholder {
+  color: #9ca3af;
 }
 
-@media (max-width: 1200px) {
-  .sidebar {
-    width: 280px;
+.tc-textarea-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.tc-char-count {
+  font-size: 11.5px;
+  color: #9ca3af;
+}
+
+.tc-format-hint {
+  font-size: 11.5px;
+  color: #9ca3af;
+  background: #f3f4f6;
+  padding: 2px 10px;
+  border-radius: 8px;
+}
+
+@media (max-width: 900px) {
+  .tc-header-inner {
+    padding: 14px 16px;
   }
-}
 
-@media (max-width: 768px) {
-  .content-container {
+  .tc-body {
+    padding: 16px 16px;
+  }
+
+  .tc-field-row {
     flex-direction: column;
   }
-  
-  .sidebar {
+
+  .tc-field--grow {
+    min-width: 0;
+  }
+
+  .tc-select {
     width: 100%;
   }
-  
-  .editor-card {
-    height: 400px;
-  }
-  
-  .page-header {
+
+  .tc-card-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 16px;
   }
-  
-  .header-right {
-    width: 100%;
-    justify-content: flex-end;
+}
+
+@media (max-width: 640px) {
+  .tc-field {
+    flex-direction: column;
+    align-items: stretch;
   }
-  
-  .back-button span {
-    display: none;
-  }
-  
-  .save-button span {
-    display: none;
+
+  .tc-label {
+    width: auto;
   }
 }
 </style>

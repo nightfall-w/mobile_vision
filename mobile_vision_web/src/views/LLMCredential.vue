@@ -178,80 +178,69 @@
     </div>
 
     <!-- 添加/编辑凭证弹窗 -->
-    <el-dialog
-      :title="dialogTitle"
-      v-model="dialogVisible"
-      width="500px"
-    >
-      <el-form :model="formData" label-width="120px">
-        <el-form-item label="模型名称" prop="model">
-          <el-input
-            v-model="formData.model"
-            placeholder="请输入模型名称"
-            size="small"
-          />
-        </el-form-item>
-        <el-form-item label="API密钥" prop="api_key">
-          <el-input
-            v-model="formData.api_key"
-            type="password"
-            placeholder="请输入API密钥"
-            size="small"
-            show-password
-          />
-        </el-form-item>
-        <el-form-item label="基础URL" prop="base_url">
-          <el-input
-            v-model="formData.base_url"
-            placeholder="请输入基础URL"
-            size="small"
-          />
-        </el-form-item>
-        <el-form-item label="协议类型" prop="api_protocol">
-          <el-select
-            v-model="formData.api_protocol"
-            placeholder="请选择协议类型"
-            size="small"
-          >
-            <el-option label="OpenAI" value="OpenAI" />
-            <el-option label="Anthropic" value="Anthropic" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="所属级别" prop="workspace_id">
-          <el-select
-            v-model="formData.workspace_id"
-            placeholder="请选择级别"
-            size="small"
-          >
-            <el-option label="系统级别" value="__system__" />
-            <el-option
-              v-for="workspace in workspaces"
-              :key="workspace.workspace_id"
-              :label="workspace.workspace_name"
-              :value="String(workspace.workspace_id)"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="状态" prop="is_active">
-          <el-switch
-            v-model="formData.is_active"
-            active-text="启用"
-            inactive-text="禁用"
-            active-color="#165DFF"
-          />
-        </el-form-item>
-      </el-form>
-
+    <el-dialog v-model="dialogVisible" width="520px" :close-on-click-modal="false" class="lc-dialog">
+      <template #header>
+        <div class="lc-header">
+          <span class="lc-header-icon"><el-icon :size="20"><Key/></el-icon></span>
+          <div>
+            <h2 class="lc-header-title">{{ dialogTitle }}</h2>
+            <p class="lc-header-desc">{{ dialogTitle === '添加凭证' ? '添加新的 LLM 凭证配置' : '修改已有的 LLM 凭证信息' }}</p>
+          </div>
+        </div>
+      </template>
+      <div class="lc-body">
+        <div class="lc-section">
+          <div class="lc-section-header">
+            <span class="lc-section-icon"><el-icon><InfoFilled/></el-icon></span>
+            <h3 class="lc-section-title">凭证信息</h3>
+          </div>
+          <div class="lc-section-body">
+            <div class="lc-field">
+              <label class="lc-label">模型名称 <span class="lc-required">*</span></label>
+              <el-input v-model="formData.model" placeholder="例如：gpt-4o" clearable class="lc-input" />
+            </div>
+            <div class="lc-field">
+              <label class="lc-label">API密钥 <span class="lc-required">*</span></label>
+              <el-input v-model="formData.api_key" type="password" placeholder="请输入API密钥" show-password clearable class="lc-input" />
+            </div>
+            <div class="lc-field">
+              <label class="lc-label">基础URL <span class="lc-required">*</span></label>
+              <el-input v-model="formData.base_url" placeholder="例如：https://api.openai.com/v1" clearable class="lc-input" />
+            </div>
+            <div class="lc-field">
+              <label class="lc-label">协议类型</label>
+              <el-select v-model="formData.api_protocol" class="lc-select">
+                <el-option label="OpenAI" value="OpenAI" />
+                <el-option label="Anthropic" value="Anthropic" />
+              </el-select>
+            </div>
+          </div>
+        </div>
+        <div class="lc-section lc-section--amber">
+          <div class="lc-section-header">
+            <span class="lc-section-icon lc-section-icon--amber"><el-icon><Setting/></el-icon></span>
+            <h3 class="lc-section-title">所属配置</h3>
+          </div>
+          <div class="lc-section-body">
+            <div class="lc-field">
+              <label class="lc-label">所属级别</label>
+              <el-select v-model="formData.workspace_id" class="lc-select">
+                <el-option label="系统级别" value="__system__" />
+                <el-option v-for="workspace in workspaces" :key="workspace.workspace_id" :label="workspace.workspace_name" :value="String(workspace.workspace_id)" />
+              </el-select>
+            </div>
+            <div class="lc-field lc-field--switch">
+              <label class="lc-label">状态</label>
+              <el-switch v-model="formData.is_active" active-text="启用" inactive-text="禁用" active-color="#5b6ef7" />
+            </div>
+          </div>
+        </div>
+      </div>
       <template #footer>
-        <el-button size="small" @click="dialogVisible = false">取消</el-button>
-        <el-button
-          type="primary"
-          size="small"
-          @click="handleSave"
-          :loading="saving"
-        >
-          {{ saving ? '保存中...' : '保存' }}
-        </el-button>
+        <div class="lc-footer">
+          <el-button @click="dialogVisible = false" class="lc-btn-cancel">取消</el-button>
+          <el-button type="primary" @click="handleSave" :loading="saving" class="lc-btn-primary">{{ saving ? '保存中...' : '保存' }}</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -280,7 +269,7 @@
 <script setup>
 import { ref, watch, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { Plus, Refresh, Search, Warning } from '@element-plus/icons-vue';
+import { Plus, Refresh, Search, Warning, Key, InfoFilled, Setting } from '@element-plus/icons-vue';
 import { getMyManageWorkspaces } from '@/network/api.js';
 import { createLLMCredential, getLLMCredentialList, updateLLMCredential, deleteLLMCredential, getLLMCredentialWithKey } from '@/network/api.js';
 
@@ -290,7 +279,6 @@ const loading = ref(false);
 const saving = ref(false);
 const dialogVisible = ref(false);
 const dialogTitle = ref('添加凭证');
-const showApiKey = ref(false);
 const filterLevel = ref('');
 const filterWorkspaceId = ref(null);
 const deleteDialogVisible = ref(false);
@@ -384,7 +372,6 @@ const openCreateDialog = () => {
     workspace_id: null,
     is_active: true
   };
-  showApiKey.value = false;
   dialogVisible.value = true;
 };
 
@@ -403,10 +390,7 @@ const openEditDialog = async (row) => {
         workspace_id: workspaceId === null || workspaceId === undefined ? '__system__' : String(workspaceId),
         is_active: resp.data.is_active
       };
-      showApiKey.value = false;
-      setTimeout(() => {
-        dialogVisible.value = true;
-      }, 0);
+      dialogVisible.value = true;
     } else {
       ElMessage.error('获取凭证详情失败');
     }
@@ -573,5 +557,217 @@ onMounted(() => {
   padding: 12px 20px;
   margin-top: 10px;
   background-color: white;
+}
+
+/* ===== 添加/编辑凭证弹窗 ===== */
+.lc-dialog :deep(.el-dialog__header) {
+  padding: 0;
+}
+
+.lc-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.lc-dialog :deep(.el-dialog__footer) {
+  padding: 0;
+}
+
+.lc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 24px 0;
+}
+
+.lc-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b8af4;
+  flex-shrink: 0;
+}
+
+.lc-header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.lc-header-desc {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.lc-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lc-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  border-left: 2px solid #4b8af4;
+  overflow: hidden;
+}
+
+.lc-section--amber {
+  border-left-color: #e8962e;
+}
+
+.lc-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f5f7fd;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.lc-section--amber .lc-section-header {
+  background: #fef8f0;
+}
+
+.lc-section-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b8af4;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.lc-section-icon--amber {
+  background: #fef3e8;
+  color: #e8962e;
+}
+
+.lc-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.lc-section-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lc-field--switch {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lc-field--switch .lc-label {
+  margin-bottom: 0;
+}
+
+.lc-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.lc-required {
+  color: #dc2626;
+}
+
+.lc-input .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #fafafa;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.lc-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.lc-input .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #5b6ef7 inset;
+  background: #ffffff;
+}
+
+.lc-input .el-input__inner {
+  height: 38px;
+  font-size: 14px;
+}
+
+.lc-select {
+  width: 100%;
+}
+
+.lc-select .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #fafafa;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.lc-select .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.lc-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #5b6ef7 inset;
+  background: #ffffff;
+}
+
+.lc-select .el-input__inner {
+  height: 38px;
+  font-size: 14px;
+}
+
+.lc-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.lc-btn-cancel {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 20px;
+}
+
+.lc-btn-primary {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 22px;
+  background: #5b6ef7;
+  border-color: #5b6ef7;
+  box-shadow: 0 1px 3px rgba(91, 110, 247, 0.3);
+  transition: all 0.15s ease;
+}
+
+.lc-btn-primary:hover {
+  background: #4c5fd8;
+  border-color: #4c5fd8;
+  box-shadow: 0 2px 6px rgba(91, 110, 247, 0.4);
 }
 </style>

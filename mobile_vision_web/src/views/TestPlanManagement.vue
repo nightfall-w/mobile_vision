@@ -11,23 +11,14 @@
           <div class="header-info">
             <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
             <el-tag
-              v-for="manager in managers"
-              :key="manager.username"
+              v-if="managers.length > 0"
               size="small"
               class="manager-tag"
             >
               <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ manager.nickname }}
+              管理员：{{ managerNames }}
             </el-tag>
           </div>
-          <el-button
-            type="primary"
-            @click="openCreateDialog"
-            class="create-button"
-          >
-            <el-icon :size="16" class="mr-1"><Plus/></el-icon>
-            创建测试计划
-          </el-button>
         </div>
       </div>
 
@@ -49,6 +40,10 @@
         <el-button class="reset-btn" @click="resetSearch">
           <el-icon><Refresh/></el-icon>
           重置
+        </el-button>
+        <el-button type="primary" @click="openCreateDialog" style="margin-left: auto">
+          <el-icon :size="16" class="mr-1"><Plus/></el-icon>
+          创建测试计划
         </el-button>
       </div>
     </div>
@@ -106,21 +101,33 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogTitle"
       width="500px"
+      class="cp-dialog"
+      destroy-on-close
+      align-center
       @close="resetForm"
     >
-      <el-form :model="form" label-width="120px">
+      <template #header>
+        <div class="cp-header">
+          <div class="cp-header-title">{{ dialogTitle }}</div>
+          <div class="cp-header-subtitle">{{ dialogTitle === '创建测试计划' ? '创建一个新计划来组织你的测试用例' : '修改测试计划的基本信息' }}</div>
+        </div>
+      </template>
+
+      <el-form :model="form" label-position="top" class="cp-form">
         <el-form-item label="计划名称" prop="name">
-          <el-input v-model="form.name" />
+          <el-input v-model="form.name" placeholder="例：V3.2 回归测试" maxlength="100" />
         </el-form-item>
         <el-form-item label="计划描述">
-          <el-input v-model="form.description" type="textarea" :rows="3" />
+          <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述该计划的目的和范围（选填）" maxlength="500" />
         </el-form-item>
       </el-form>
+
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" @click="savePlan">保存</el-button>
+        <div class="cp-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="savePlan">{{ dialogTitle === '创建测试计划' ? '创建计划' : '保存修改' }}</el-button>
+        </div>
       </template>
     </el-dialog>
 
@@ -215,46 +222,20 @@
         <el-tab-pane label="添加用例" name="add">
           <div class="add-case-tab">
             <div class="tab-toolbar">
-              <el-input
-                v-model="searchKeyword"
-                placeholder="搜索用例名称"
-                clearable
-                size="default"
-                style="width: 240px;"
-                @input="handleSearchCases"
-              >
-                <template #prefix>
-                  <el-icon><Search/></el-icon>
-                </template>
-              </el-input>
-              <el-select v-model="batchDeviceId" placeholder="选择执行设备" size="default" style="width: 260px">
-                <el-option label="🔄 动态分配（空闲设备）" :value="''" />
-                <el-option
-                  v-for="d in deviceOptions"
-                  :key="d.id"
-                  :label="`${d.brand} ${d.model} (${d.id})`"
-                  :value="d.id"
-                />
-              </el-select>
-              <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 240px">
-                <el-option
-                  v-for="l in llmOptions"
-                  :key="l.id"
-                  :label="`${l.model} (${l.base_url || 'N/A'})`"
-                  :value="l.id"
-                />
-              </el-select>
-              <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 160px">
-                <el-option
-                  v-for="y in yoloOptions"
-                  :key="y.id"
-                  :label="y.name"
-                  :value="y.id"
-                />
-              </el-select>
-              <el-button type="primary" @click="batchAddCases" :disabled="selectedToAdd.length === 0">
-                添加选中用例 ({{ selectedToAdd.length }})
-              </el-button>
+              <div class="toolbar-left">
+                <el-input
+                  v-model="searchKeyword"
+                  placeholder="搜索用例名称"
+                  clearable
+                  size="default"
+                  style="width: 240px;"
+                  @input="handleSearchCases"
+                >
+                  <template #prefix>
+                    <el-icon><Search/></el-icon>
+                  </template>
+                </el-input>
+              </div>
             </div>
             <el-table
               ref="addTableRef"
@@ -264,7 +245,7 @@
               border
               class="case-table"
               style="width: 100%"
-              height="450"
+              height="380"
             >
               <el-table-column type="selection" width="50" />
               <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
@@ -284,6 +265,37 @@
                 </template>
               </el-table-column>
             </el-table>
+            <div v-if="selectedToAdd.length > 0" class="batch-config-bar">
+              <span class="batch-label">已选 <strong>{{ selectedToAdd.length }}</strong> 个用例</span>
+              <el-select v-model="batchDeviceId" placeholder="选择执行设备" size="default" style="width: 220px">
+                <el-option label="🔄 动态分配（空闲设备）" :value="''" />
+                <el-option
+                  v-for="d in deviceOptions"
+                  :key="d.id"
+                  :label="`${d.brand} ${d.model} (${d.id})`"
+                  :value="d.id"
+                />
+              </el-select>
+              <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 200px">
+                <el-option
+                  v-for="l in llmOptions"
+                  :key="l.id"
+                  :label="`${l.model} (${l.base_url || 'N/A'})`"
+                  :value="l.id"
+                />
+              </el-select>
+              <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 140px">
+                <el-option
+                  v-for="y in yoloOptions"
+                  :key="y.id"
+                  :label="y.name"
+                  :value="y.id"
+                />
+              </el-select>
+              <el-button type="primary" @click="batchAddCases" size="default">
+                添加 ({{ selectedToAdd.length }})
+              </el-button>
+            </div>
             <div class="table-pagination">
               <el-pagination
                 v-model:current-page="casePagination.page_num"
@@ -300,6 +312,13 @@
         </el-tab-pane>
         <el-tab-pane label="已关联用例" name="associated">
           <div class="associated-case-tab">
+            <div class="associated-stats">
+              <span class="stat-total">已关联 <strong>{{ associatedCaseList.length }}</strong> 个用例</span>
+              <span class="stat-divider">|</span>
+              <span class="stat-specified">指定设备 <strong>{{ specifiedDeviceCount }}</strong></span>
+              <span class="stat-divider">|</span>
+              <span class="stat-dynamic">动态分配 <strong>{{ dynamicAssignCount }}</strong></span>
+            </div>
             <div class="tab-toolbar">
               <el-button type="danger" size="small" @click="batchRemoveRelations" :disabled="selectedToRemove.length === 0">
                 批量删除 ({{ selectedToRemove.length }})
@@ -312,7 +331,7 @@
               border
               class="case-table"
               style="width: 100%"
-              height="450"
+              height="410"
             >
               <el-table-column type="selection" width="50" />
               <el-table-column prop="case_name" label="用例名称" min-width="150" show-overflow-tooltip />
@@ -323,7 +342,6 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="updater_name" label="更新人" width="100" />
               <el-table-column prop="status" label="状态" width="80">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.status === 'completed' ? 'success' : row.status === 'disabled' ? 'info' : 'warning'">
@@ -331,64 +349,45 @@
                   </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="设备" min-width="180">
+              <el-table-column label="设备" min-width="160">
                 <template #default="{ row }">
-                  <el-select v-model="row.device_id" placeholder="选择设备" size="small" style="width: 100%" @change="updateRelation(row)">
-                    <el-option label="🔄 动态分配（空闲设备）" :value="''" />
-                    <el-option
-                      v-for="d in deviceOptions"
-                      :key="d.id"
-                      :label="`${d.brand} ${d.model} (${d.id})`"
-                      :value="d.id"
-                    />
-                  </el-select>
+                  <el-tag v-if="row.device_id" size="small" class="device-tag">
+                    <el-icon :size="12"><Iphone/></el-icon>
+                    {{ row.device_name || row.device_id }}
+                  </el-tag>
+                  <el-tag v-else size="small" type="warning" class="dynamic-tag">
+                    🔄 动态分配
+                  </el-tag>
                 </template>
               </el-table-column>
-              <el-table-column label="LLM模型" min-width="180">
+              <el-table-column label="LLM" min-width="120">
                 <template #default="{ row }">
-                  <el-select v-model="row.llm_credential_id" placeholder="选择LLM" size="small" style="width: 100%" @change="updateRelation(row)">
-                    <el-option
-                      v-for="l in llmOptions"
-                      :key="l.id"
-                      :label="`${l.model} (${l.base_url || 'N/A'})`"
-                      :value="l.id"
-                    />
-                  </el-select>
+                  <span class="config-text">{{ getLLMName(row.llm_credential_id) || '-' }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="YOLO模型" width="130">
+              <el-table-column label="YOLO" width="100">
                 <template #default="{ row }">
-                  <el-select v-model="row.yolo_model_id" placeholder="选择YOLO" size="small" style="width: 100%" @change="updateRelation(row)">
-                    <el-option
-                      v-for="y in yoloOptions"
-                      :key="y.id"
-                      :label="y.name"
-                      :value="y.id"
-                    />
-                  </el-select>
+                  <span class="config-text">{{ getYOLOName(row.yolo_model_id) || '-' }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="OCR" width="90">
+              <el-table-column label="OCR" width="80">
                 <template #default="{ row }">
-                  <el-select v-model="row.ocr_engine" placeholder="选择OCR" size="small" style="width: 100%" @change="updateRelation(row)">
-                    <el-option label="EasyOCR" value="easyocr" />
-                    <el-option label="RapidOCR" value="rapidocr" />
-                  </el-select>
+                  <span class="config-text">{{ row.ocr_engine || '-' }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="推理强度" width="110">
+              <el-table-column label="推理" width="80">
                 <template #default="{ row }">
-                  <el-select v-model="row.reasoning_effort" placeholder="选择推理强度" size="small" style="width: 100%" @change="updateRelation(row)">
-                    <el-option label="none" value="none" />
-                    <el-option label="low" value="low" />
-                    <el-option label="medium" value="medium" />
-                    <el-option label="high" value="high" />
-                  </el-select>
+                  <span class="config-text">{{ row.reasoning_effort || '-' }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="80" fixed="right">
                 <template #default="{ row }">
-                  <el-button type="danger" size="small" link @click="removeRelation(row.id)">删除</el-button>
+                  <el-button type="primary" size="small" link @click="openEditRelationDialog(row)">
+                    <el-icon :size="15"><Edit/></el-icon>
+                  </el-button>
+                  <el-button type="danger" size="small" link @click="removeRelation(row.id)">
+                    <el-icon :size="15"><Delete/></el-icon>
+                  </el-button>
                 </template>
               </el-table-column>
             </el-table>
@@ -396,13 +395,193 @@
         </el-tab-pane>
       </el-tabs>
     </el-dialog>
+
+    <!-- 编辑关联用例配置弹窗 -->
+    <el-dialog
+      v-model="editRelationDialogVisible"
+      width="640px"
+      class="er-dialog"
+      destroy-on-close
+      align-center
+    >
+      <template #header>
+        <div class="er-header">
+          <div class="er-header-icon">
+            <el-icon><Setting /></el-icon>
+          </div>
+          <div class="er-header-text">
+            <div class="er-header-title">编辑用例配置</div>
+            <div class="er-header-subtitle">为该用例单独覆盖计划默认配置</div>
+          </div>
+        </div>
+      </template>
+
+      <div class="er-case-card">
+        <div class="er-case-card-name">{{ editRelationForm.case_name || '未命名用例' }}</div>
+        <div class="er-case-card-meta">
+          <el-tag
+            v-if="editRelationForm.case_level"
+            size="small"
+            :type="editRelationForm.case_level === 'P0' ? 'danger' : editRelationForm.case_level === 'P1' ? 'warning' : 'info'"
+            effect="light"
+            round
+          >
+            {{ editRelationForm.case_level }}
+          </el-tag>
+          <el-tag
+            v-if="editRelationForm.status"
+            size="small"
+            :type="editRelationForm.status === 'completed' ? 'success' : editRelationForm.status === 'disabled' ? 'info' : 'warning'"
+            effect="plain"
+            round
+          >
+            {{ editRelationForm.status === 'completed' ? '已完成' : editRelationForm.status === 'disabled' ? '已禁用' : '调试中' }}
+          </el-tag>
+        </div>
+      </div>
+
+      <el-form :model="editRelationForm" label-position="top" class="er-form">
+        <!-- 执行环境 -->
+        <div class="er-group">
+          <div class="er-group-title-row">
+            <span class="er-group-icon"><el-icon><Monitor /></el-icon></span>
+            <span class="er-group-title">执行环境</span>
+          </div>
+          <div class="er-group-body">
+            <el-form-item>
+              <template #label>
+                <span class="er-field-label">
+                  执行设备
+                  <span v-if="!editRelationForm.device_id" class="er-field-tag er-field-tag--dynamic">动态分配</span>
+                  <span v-else class="er-field-tag er-field-tag--specified">已指定</span>
+                </span>
+              </template>
+              <el-select v-model="editRelationForm.device_id" placeholder="选择执行设备" clearable style="width: 100%">
+                <el-option label="动态分配（空闲设备）" :value="''" />
+                <el-option
+                  v-if="editRelationForm.device_id && !deviceOptions.some(d => d.id === editRelationForm.device_id)"
+                  :key="`offline-${editRelationForm.device_id}`"
+                  :label="`${editRelationForm.device_name || editRelationForm.device_id} (${editRelationForm.device_id})`"
+                  :value="editRelationForm.device_id"
+                />
+                <el-option
+                  v-for="d in deviceOptions"
+                  :key="d.id"
+                  :label="`${d.brand} ${d.model} (${d.id})`"
+                  :value="d.id"
+                />
+              </el-select>
+              <div class="er-field-hint">留空时由系统自动选择当前空闲的设备执行</div>
+            </el-form-item>
+          </div>
+        </div>
+
+        <!-- AI 模型 -->
+        <div class="er-group">
+          <div class="er-group-title-row">
+            <span class="er-group-icon"><el-icon><MagicStick /></el-icon></span>
+            <span class="er-group-title">AI 模型</span>
+          </div>
+          <div class="er-group-body er-group-body--grid">
+            <el-form-item>
+              <template #label>
+                <span class="er-field-label">LLM 视觉模型</span>
+              </template>
+              <el-select v-model="editRelationForm.llm_credential_id" placeholder="选择 LLM" clearable style="width: 100%">
+                <el-option
+                  v-for="l in llmOptions"
+                  :key="l.id"
+                  :label="`${l.model} (${l.base_url || 'N/A'})`"
+                  :value="l.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item>
+              <template #label>
+                <span class="er-field-label">YOLO 检测模型</span>
+              </template>
+              <el-select v-model="editRelationForm.yolo_model_id" placeholder="选择 YOLO" clearable style="width: 100%">
+                <el-option
+                  v-for="y in yoloOptions"
+                  :key="y.id"
+                  :label="y.name"
+                  :value="y.id"
+                />
+              </el-select>
+            </el-form-item>
+            <el-form-item class="er-form-item--full">
+              <template #label>
+                <span class="er-field-label">OCR 引擎</span>
+              </template>
+              <el-select v-model="editRelationForm.ocr_engine" placeholder="选择 OCR" clearable style="width: 100%">
+                <el-option label="EasyOCR" value="easyocr" />
+                <el-option label="RapidOCR" value="rapidocr" />
+              </el-select>
+            </el-form-item>
+          </div>
+        </div>
+
+        <!-- 推理参数 -->
+        <div class="er-group">
+          <div class="er-group-title-row">
+            <span class="er-group-icon"><el-icon><TrendCharts /></el-icon></span>
+            <span class="er-group-title">推理参数</span>
+          </div>
+          <div class="er-group-body">
+            <el-form-item>
+              <template #label>
+                <span class="er-field-label">推理强度</span>
+              </template>
+              <div class="er-reasoning-slider">
+                <div class="er-slider-bar">
+                  <div class="er-slider-track">
+                    <div class="er-slider-fill" :style="{ width: reasoningEffortFill + '%' }"></div>
+                  </div>
+                  <div
+                    v-for="(opt, i) in reasoningOptions"
+                    :key="opt.value"
+                    class="er-slider-stop"
+                    :class="{ active: editRelationForm.reasoning_effort === opt.value }"
+                    :style="{ left: (5 + i * 90 / (reasoningOptions.length - 1)) + '%' }"
+                    @click="editRelationForm.reasoning_effort = opt.value"
+                  >
+                    <div class="er-slider-dot"></div>
+                  </div>
+                </div>
+                <div class="er-slider-labels">
+                  <div
+                    v-for="(opt, i) in reasoningOptions"
+                    :key="opt.value"
+                    class="er-slider-label"
+                    :class="{ active: editRelationForm.reasoning_effort === opt.value }"
+                    :style="{ left: (5 + i * 90 / (reasoningOptions.length - 1)) + '%' }"
+                    @click="editRelationForm.reasoning_effort = opt.value"
+                  >
+                    <span class="er-slider-label-text">{{ opt.label }}</span>
+                    <span class="er-slider-label-sub">{{ opt.sub }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="er-field-hint">均衡模式适合大多数场景，深度模式适合复杂推理任务（耗时更长）</div>
+            </el-form-item>
+          </div>
+        </div>
+      </el-form>
+
+      <template #footer>
+        <div class="er-footer">
+          <el-button @click="editRelationDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmEditRelation">保存配置</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Search, Refresh, Warning, User, InfoFilled } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Warning, User, InfoFilled, Iphone, Edit, Delete, Setting, Document, DocumentAdd, MagicStick, Cpu, Check, Monitor, Aim, TrendCharts } from '@element-plus/icons-vue'
 import axios from '@/network/axios'
 import {
   getTestPlanList,
@@ -439,6 +618,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const viewDialogVisible = ref(false)
 const addCaseDialogVisible = ref(false)
+const editRelationDialogVisible = ref(false)
 const executeDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
 
@@ -466,9 +646,33 @@ const casePagination = reactive({
   total: 0
 })
 const activeTab = ref('add')
+const editRelationForm = reactive({
+  id: null,
+  device_id: '',
+  device_name: '',
+  llm_credential_id: null,
+  yolo_model_id: null,
+  ocr_engine: null,
+  reasoning_effort: null,
+  case_name: '',
+  case_level: '',
+  status: ''
+})
 
 const tableHeight = computed(() => {
   return window.innerHeight - 320
+})
+
+const reasoningOptions = [
+  { value: 'none', label: '关闭', sub: '无推理' },
+  { value: 'low', label: '快速', sub: '低强度' },
+  { value: 'medium', label: '均衡', sub: '中强度' },
+  { value: 'high', label: '深度', sub: '高强度' }
+]
+
+const reasoningEffortFill = computed(() => {
+  const map = { none: 5, low: 35, medium: 65, high: 100 }
+  return map[editRelationForm.reasoning_effort] ?? 5
 })
 
 // 统计设备分配情况
@@ -482,6 +686,7 @@ const dynamicAssignCount = computed(() => {
 
 const workspaceName = ref('')
 const managers = ref([])
+const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 
 const fetchWorkspaceDetail = async () => {
   try {
@@ -833,26 +1038,46 @@ const refreshAssociatedCases = async () => {
   }
 }
 
-const updateRelation = async (row) => {
-  try {
-    if (row.device_id) {
-      const device = deviceOptions.value.find(d => d.id === row.device_id)
-      if (device) {
-        row.device_name = `${device.brand} ${device.model}`
-        row.device_android_id = device.android_id
-      }
-    }
+const getLLMName = (id) => {
+  if (!id) return null
+  const llm = llmOptions.value.find(l => l.id === id)
+  return llm ? llm.model : id
+}
 
-    const result = await updateCaseRelation({
-      id: row.id,
-      device_id: row.device_id,
-      llm_credential_id: row.llm_credential_id,
-      yolo_model_id: row.yolo_model_id,
-      ocr_engine: row.ocr_engine,
-      reasoning_effort: row.reasoning_effort
-    })
+const getYOLOName = (id) => {
+  if (!id) return null
+  const yolo = yoloOptions.value.find(y => y.id === id)
+  return yolo ? yolo.name : id
+}
+
+const openEditRelationDialog = (row) => {
+  editRelationForm.id = row.id
+  editRelationForm.device_id = row.device_id || ''
+  editRelationForm.device_name = row.device_name || ''
+  editRelationForm.llm_credential_id = row.llm_credential_id || null
+  editRelationForm.yolo_model_id = row.yolo_model_id || null
+  editRelationForm.ocr_engine = row.ocr_engine || null
+  editRelationForm.reasoning_effort = row.reasoning_effort || null
+  editRelationForm.case_name = row.case_name || ''
+  editRelationForm.case_level = row.case_level || ''
+  editRelationForm.status = row.status || ''
+  editRelationDialogVisible.value = true
+}
+
+const confirmEditRelation = async () => {
+  try {
+    const params = { id: editRelationForm.id }
+    if (editRelationForm.device_id !== undefined) params.device_id = editRelationForm.device_id
+    if (editRelationForm.llm_credential_id !== undefined) params.llm_credential_id = editRelationForm.llm_credential_id
+    if (editRelationForm.yolo_model_id !== undefined) params.yolo_model_id = editRelationForm.yolo_model_id
+    if (editRelationForm.ocr_engine !== undefined) params.ocr_engine = editRelationForm.ocr_engine
+    if (editRelationForm.reasoning_effort !== undefined) params.reasoning_effort = editRelationForm.reasoning_effort
+
+    const result = await updateCaseRelation(params)
     if (result.code === 0) {
       ElMessage.success('更新成功')
+      editRelationDialogVisible.value = false
+      await refreshAssociatedCases()
     } else {
       ElMessage.error(result.message || '更新失败')
     }
@@ -1041,15 +1266,16 @@ onMounted(() => {
 
 .header-right {
   display: flex;
-  align-items: center;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
 }
 
 .header-info {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .info-text {
@@ -1064,16 +1290,11 @@ onMounted(() => {
 }
 
 .manager-tag {
-  background: #ecf5ff;
-  border-color: #d9ecff;
-  color: #409eff;
+  background: #dbeafe;
+  color: #2563eb;
+  border: none;
 }
 
-.create-button {
-  background: linear-gradient(135deg, #4080ff 0%, #366fc9 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(64, 128, 255, 0.3);
-}
 
 .id-text {
   font-weight: 600;
@@ -1369,5 +1590,631 @@ onMounted(() => {
 
 :deep(.case-management-dialog .el-dialog__body) {
   padding: 15px 20px 20px;
+}
+
+/* 关联用例统计栏 */
+.associated-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f8fafc;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.stat-total strong {
+  color: #3b82f6;
+}
+
+.stat-specified strong {
+  color: #10b981;
+}
+
+.stat-dynamic strong {
+  color: #f59e0b;
+}
+
+.stat-divider {
+  color: #d1d5db;
+}
+
+/* 批量配置栏 */
+.batch-config-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
+  border: 1px solid #e0e7ff;
+  border-radius: 10px;
+  animation: slideUp 0.2s ease-out;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.batch-label {
+  font-size: 13px;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.batch-label strong {
+  color: #3b82f6;
+  font-size: 15px;
+}
+
+/* 已关联用例标签样式 */
+.device-tag {
+  background: #ecfdf5;
+  color: #059669;
+  border: none;
+}
+
+.dynamic-tag {
+  border: none;
+}
+
+.config-text {
+  font-size: 13px;
+  color: #374151;
+}
+
+/* ===== 创建/编辑测试计划弹窗 ===== */
+.cp-dialog .el-dialog {
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.cp-dialog .el-dialog__header {
+  padding: 24px 28px 0;
+  margin: 0;
+  border: none;
+  background: #fff;
+}
+
+.cp-dialog .el-dialog__headerbtn {
+  top: 18px;
+  right: 18px;
+}
+
+.cp-dialog .el-dialog__body {
+  padding: 20px 28px 8px;
+  background: #fff;
+}
+
+.cp-dialog .el-dialog__footer {
+  padding: 8px 28px 24px;
+  border: none;
+  background: #fff;
+}
+
+.cp-header {
+  padding-bottom: 4px;
+}
+
+.cp-header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #1d1d1f;
+  letter-spacing: -0.2px;
+}
+
+.cp-header-subtitle {
+  font-size: 12.5px;
+  color: #86868b;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.cp-form .el-form-item {
+  margin-bottom: 18px;
+}
+
+.cp-form .el-form-item:last-child {
+  margin-bottom: 0;
+}
+
+.cp-form .el-form-item__label {
+  padding-bottom: 6px !important;
+  line-height: 1.4;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+.cp-form .el-input__wrapper,
+.cp-form .el-textarea__inner {
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px #d2d2d7 inset;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+  background: #fafafa;
+  padding: 4px 12px;
+}
+
+.cp-form .el-input__wrapper:hover,
+.cp-form .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #b8b8be inset;
+  background: #f5f5f7;
+}
+
+.cp-form .el-input.is-focus .el-input__wrapper,
+.cp-form .el-textarea.is-focus .el-textarea__inner {
+  box-shadow: 0 0 0 2px #007aff inset;
+  background: #fff;
+}
+
+.cp-form .el-textarea__inner {
+  padding: 8px 12px;
+  line-height: 1.5;
+}
+
+.cp-form .el-input__inner {
+  height: 36px;
+  font-size: 14px;
+}
+
+.cp-form .el-textarea__inner::placeholder,
+.cp-form .el-input__inner::placeholder {
+  color: #aeaeb2;
+}
+
+.cp-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.cp-footer .el-button {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 18px;
+  height: auto;
+  min-width: 80px;
+}
+
+.cp-footer .el-button--primary {
+  background: #007aff;
+  border-color: #007aff;
+}
+
+.cp-footer .el-button--primary:hover {
+  background: #0062cc;
+  border-color: #0062cc;
+}
+
+/* ===== 编辑用例配置弹窗 ===== */
+.er-dialog .el-dialog {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.er-dialog .el-dialog__header {
+  padding: 24px 28px 0;
+  margin: 0;
+  border: none;
+  background: #fff;
+}
+
+.er-dialog .el-dialog__headerbtn {
+  top: 20px;
+  right: 20px;
+}
+
+.er-dialog .el-dialog__headerbtn .el-dialog__close {
+  font-size: 18px;
+  color: #9ca3af;
+  transition: color 0.15s ease;
+}
+
+.er-dialog .el-dialog__headerbtn:hover .el-dialog__close {
+  color: #374151;
+}
+
+.er-dialog .el-dialog__body {
+  padding: 16px 28px 8px;
+  background: #fff;
+}
+
+.er-dialog .el-dialog__footer {
+  padding: 8px 28px 24px;
+  border: none;
+  background: #fff;
+}
+
+/* Header with icon */
+.er-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 2px;
+}
+
+.er-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eef2ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5b6ef7;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.er-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.er-header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #111827;
+  letter-spacing: -0.3px;
+}
+
+.er-header-subtitle {
+  font-size: 12.5px;
+  color: #6b7280;
+  line-height: 1.4;
+}
+
+/* 用例信息卡片 */
+.er-case-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: #f8f9fb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 18px;
+  border-left: 2px solid #5b6ef7;
+}
+
+.er-case-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.er-case-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* 表单分组 */
+.er-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 执行环境 — 蓝色主题 */
+.er-group:nth-child(1) {
+  border-left: 2px solid #4b8af4;
+}
+
+.er-group:nth-child(1) .er-group-title-row {
+  background: #f5f9fd;
+}
+
+.er-group:nth-child(1) .er-group-icon {
+  background: #e8f0fe;
+  color: #4b8af4;
+}
+
+/* AI 模型 — 紫色主题 */
+.er-group:nth-child(2) {
+  border-left: 2px solid #7c5ce7;
+}
+
+.er-group:nth-child(2) .er-group-title-row {
+  background: #f8f5fd;
+}
+
+.er-group:nth-child(2) .er-group-icon {
+  background: #f0e8fe;
+  color: #7c5ce7;
+}
+
+/* 推理参数 — 琥珀主题 */
+.er-group:nth-child(3) {
+  border-left: 2px solid #e8962e;
+}
+
+.er-group:nth-child(3) .er-group-title-row {
+  background: #fefaf5;
+}
+
+.er-group:nth-child(3) .er-group-icon {
+  background: #fef3e8;
+  color: #e8962e;
+}
+
+.er-group {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.er-group:hover {
+  border-color: #d1d5db;
+}
+
+.er-group-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.er-group-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.er-group-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #374151;
+  letter-spacing: 0.3px;
+}
+
+.er-group-body {
+  padding: 12px 14px 4px;
+}
+
+.er-group-body--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 14px;
+}
+
+.er-form-item--full {
+  grid-column: 1 / -1;
+}
+
+.er-form .el-form-item {
+  margin-bottom: 14px;
+}
+
+.er-form .el-form-item:last-child {
+  margin-bottom: 8px;
+}
+
+.er-form .el-form-item__label {
+  padding-bottom: 6px !important;
+  line-height: 1.4;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.er-field-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.er-field-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  line-height: 1.5;
+}
+
+.er-field-tag--dynamic {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
+
+.er-field-tag--specified {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.er-form .el-input__wrapper,
+.er-form .el-textarea__inner {
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+  background: #f9fafb;
+  padding: 4px 12px;
+}
+
+.er-form .el-input__wrapper:hover,
+.er-form .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.er-form .el-input.is-focus .el-input__wrapper,
+.er-form .el-textarea.is-focus .el-textarea__inner {
+  box-shadow: 0 0 0 2px rgba(91, 110, 247, 0.25) inset;
+  background: #fff;
+}
+
+.er-form .el-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px rgba(91, 110, 247, 0.25) inset;
+  background: #fff;
+}
+
+.er-form .el-input__inner {
+  height: 36px;
+  font-size: 14px;
+}
+
+.er-form .el-textarea__inner {
+  padding: 8px 12px;
+}
+
+.er-form .el-input__inner::placeholder,
+.er-form .el-textarea__inner::placeholder {
+  color: #9ca3af;
+}
+
+.er-field-hint {
+  font-size: 11.5px;
+  color: #6b7280;
+  margin-top: 22px;
+  line-height: 1.4;
+  width: 100%;
+}
+
+/* 推理强度 - 坡度滑块 */
+.er-reasoning-slider {
+  padding: 8px 0 4px;
+  width: 100%;
+}
+
+.er-slider-bar {
+  position: relative;
+  height: 32px;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.er-slider-track {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 6px;
+  transform: translateY(-50%);
+  background: #e5e7eb;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.er-slider-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4b8af4, #7c5ce7, #e8962e);
+  transition: width 0.2s ease;
+}
+
+.er-slider-stop {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.er-slider-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #d1d5db;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+  flex-shrink: 0;
+}
+
+.er-slider-stop.active .er-slider-dot {
+  width: 16px;
+  height: 16px;
+  border-width: 3px;
+  border-color: #5b6ef7;
+  box-shadow: 0 0 0 3px rgba(91, 110, 247, 0.18);
+}
+
+.er-slider-labels {
+  position: relative;
+  height: 52px;
+  margin-top: 8px;
+}
+
+.er-slider-label {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  min-width: 48px;
+}
+
+.er-slider-label:hover {
+  background: #f3f4f6;
+}
+
+.er-slider-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  transition: color 0.15s ease;
+}
+
+.er-slider-label.active .er-slider-label-text {
+  color: #5b6ef7;
+  font-weight: 600;
+}
+
+.er-slider-label-sub {
+  font-size: 10px;
+  color: #9ca3af;
+  transition: color 0.15s ease;
+}
+
+.er-slider-label.active .er-slider-label-sub {
+  color: #6b7280;
+}
+
+/* Footer */
+.er-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.er-footer .el-button {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 18px;
+  height: auto;
+  min-width: 80px;
 }
 </style>

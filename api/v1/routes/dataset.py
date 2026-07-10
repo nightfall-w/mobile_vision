@@ -35,12 +35,10 @@ DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
 async def create_dataset_api(
         name: str = Form(...),
         description: str = Form(""),
-        classes: str = Form("object"),
         current_user: UserModel = Depends(get_current_user)
 ):
     """创建数据集"""
-    class_list = [c.strip() for c in classes.split(',') if c.strip()]
-    dataset = create_dataset(name, description, class_list)
+    dataset = create_dataset(name, description, [])
     return api_response(data=dataset, message="数据集创建成功")
 
 

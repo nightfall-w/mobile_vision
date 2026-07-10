@@ -173,19 +173,27 @@ class WorkspaceCRUD:
             limit: int = 10,
             offset: int = 0
     ) -> Tuple[List[Workspace], int]:
-        """获取我管理的工作空间列表及总数"""
+        """获取我管理的工作空间列表及总数（从 workspace_member 派生管理员身份）"""
+        # 子查询：当前用户是管理员的工作空间 ID
+        admin_workspace_ids = select(WorkspaceMember.workspace_id).join(
+            MemberRole, WorkspaceMember.role_id == MemberRole.role_id
+        ).where(
+            WorkspaceMember.username == username,
+            WorkspaceMember.is_deleted == 0,
+            MemberRole.role_name == MemberRole.ADMIN
+        ).distinct()
 
         if workspace_name:
             count_stmt = select(func.count()).select_from(Workspace).where(
                 and_(
-                    func.json_contains(Workspace.manager, f'"{username}"'),
+                    Workspace.workspace_id.in_(admin_workspace_ids),
                     Workspace.is_deleted == 0,
                     Workspace.workspace_name.like(f"%{workspace_name}%")
                 )
             )
             stmt = select(Workspace).where(
                 and_(
-                    func.json_contains(Workspace.manager, f'"{username}"'),
+                    Workspace.workspace_id.in_(admin_workspace_ids),
                     Workspace.is_deleted == 0,
                     Workspace.workspace_name.like(f"%{workspace_name}%")
                 )
@@ -193,13 +201,13 @@ class WorkspaceCRUD:
         else:
             count_stmt = select(func.count()).select_from(Workspace).where(
                 and_(
-                    func.json_contains(Workspace.manager, f'"{username}"'),
+                    Workspace.workspace_id.in_(admin_workspace_ids),
                     Workspace.is_deleted == 0
                 )
             )
             stmt = select(Workspace).where(
                 and_(
-                    func.json_contains(Workspace.manager, f'"{username}"'),
+                    Workspace.workspace_id.in_(admin_workspace_ids),
                     Workspace.is_deleted == 0
                 )
             ).order_by(Workspace.workspace_id.desc()).limit(limit).offset(offset)
@@ -346,6 +354,24 @@ class WorkspaceCRUD:
             return False
 
     # === WorkspaceMember 相关操作 ===
+    def _sync_workspace_manager(self, workspace_id: int):
+        """同步 workspace.manager 字段与 workspace_member 中的管理员一致"""
+        admin_usernames = self.db.execute(
+            select(WorkspaceMember.username).join(
+                MemberRole, WorkspaceMember.role_id == MemberRole.role_id
+            ).where(
+                WorkspaceMember.workspace_id == workspace_id,
+                WorkspaceMember.is_deleted == 0,
+                MemberRole.role_name == MemberRole.ADMIN
+            )
+        ).scalars().all()
+
+        self.db.execute(
+            update(Workspace).where(
+                Workspace.workspace_id == workspace_id
+            ).values(manager=list(admin_usernames))
+        )
+
     def add_member_to_workspace(
             self,
             workspace_id: int,
@@ -390,6 +416,8 @@ class WorkspaceCRUD:
                 member.role_id = role_id
                 self.db.commit()
                 self.db.refresh(member)
+                # 同步 workspace.manager
+                self._sync_workspace_manager(workspace_id)
                 return member
 
             member = WorkspaceMember(
@@ -400,6 +428,8 @@ class WorkspaceCRUD:
             self.db.add(member)
             self.db.commit()
             self.db.refresh(member)
+            # 同步 workspace.manager
+            self._sync_workspace_manager(workspace_id)
             return member
         except IntegrityError as e:
             self.db.rollback()
@@ -454,6 +484,10 @@ class WorkspaceCRUD:
     ) -> bool:
         """更新成员信息"""
         try:
+            member = self.get_member_by_id(member_id)
+            if not member:
+                return False
+
             stmt = update(WorkspaceMember).where(WorkspaceMember.id == member_id)
             values = {}
 
@@ -468,6 +502,8 @@ class WorkspaceCRUD:
                 stmt = stmt.values(**values)
                 self.db.execute(stmt)
                 self.db.commit()
+                # 同步 workspace.manager（角色变更可能影响管理员列表）
+                self._sync_workspace_manager(member.workspace_id)
                 return True
             return False
         except Exception as e:
@@ -478,9 +514,17 @@ class WorkspaceCRUD:
     def remove_member_from_workspace(self, member_id: int) -> bool:
         """从工作空间移除成员（软删除）"""
         try:
+            # 先获取成员信息以便后续同步
+            member = self.get_member_by_id(member_id)
+            if not member:
+                return False
+
             stmt = update(WorkspaceMember).where(WorkspaceMember.id == member_id).values(is_deleted=1)
             self.db.execute(stmt)
             self.db.commit()
+
+            # 同步 workspace.manager
+            self._sync_workspace_manager(member.workspace_id)
             return True
         except Exception as e:
             self.db.rollback()
@@ -578,7 +622,28 @@ class WorkspaceCRUD:
 # 为路由提供便捷函数（保持与旧服务层兼容的接口）
 def create_workspace(workspace_name: str, workspace_desc: str, create_user: str, manager: list, db: Session):
     crud = WorkspaceCRUD(db)
-    return crud.create_workspace(workspace_name, workspace_desc, create_user, create_user, manager)
+    workspace = crud.create_workspace(workspace_name, workspace_desc, create_user, create_user, manager)
+    if not workspace:
+        return None
+
+    # 将管理员加入 workspace_member 表，确保数据源一致
+    admin_role = db.execute(
+        select(MemberRole).where(MemberRole.role_name == MemberRole.ADMIN)
+    ).scalars().first()
+
+    if admin_role:
+        for username in manager:
+            try:
+                crud.add_member_to_workspace(
+                    workspace_id=workspace.workspace_id,
+                    username=username,
+                    role_id=admin_role.role_id
+                )
+            except Exception as e:
+                logger.warning(f"添加管理员 {username} 到工作空间 {workspace.workspace_id} 失败: {e}")
+                # 不阻塞创建工作空间流程
+
+    return workspace
 
 
 def get_workspace_by_id(workspace_id: int, db: Session):

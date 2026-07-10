@@ -261,81 +261,69 @@
     </div>
 
     <!-- 创建工作空间对话框 -->
-    <el-dialog
-      v-model="showCreateDialog"
-      title="创建工作空间"
-      width="450px"
-      :before-close="handleCreateDialogClose"
-      class="custom-dialog"
-    >
-      <el-form
-        ref="createFormRef"
-        :model="createForm"
-        :rules="createRules"
-        label-width="80px"
-        class="space-y-4 py-2"
-      >
-        <el-form-item label="空间名称" prop="workspace_name" class="text-xs">
-          <el-input
-            v-model="createForm.workspace_name"
-            placeholder="请输入工作空间名称"
-            clearable
-            class="rounded-md border-gray-200 text-xs"
-          />
-        </el-form-item>
-        <el-form-item label="空间描述" prop="workspace_desc" class="text-xs">
-          <el-input
-            v-model="createForm.workspace_desc"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入工作空间描述（可选）"
-            resize="none"
-            class="rounded-md border-gray-200 text-xs"
-          />
-        </el-form-item>
-
-        <!-- 新增管理员选择 -->
-        <el-form-item label="管理员" prop="manager" class="text-xs">
-          <!-- 管理员搜索输入框 -->
-          <el-select
-            v-model="selectedManagers"
-            multiple
-            filterable
-            remote
-            lazy
-            :remote-method="searchUsersForCreate"
-            :loading="createSearchLoading"
-            placeholder="请输入用户名或昵称搜索用户"
-            class="w-full"
-            :multiple-limit="3"
-            value-key="username"
-          >
-            <el-option
-              v-for="user in createUserSearchResults"
-              :key="user.username"
-              :label="`${user.nickname} (${user.username})`"
-              :value="user"
-            />
-          </el-select>
-          <div class="text-gray-500 text-xs mt-1">最多可选择3个管理员</div>
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="showCreateDialog" width="520px" :close-on-click-modal="false" :before-close="handleCreateDialogClose" class="wc-dialog">
+      <template #header>
+        <div class="wc-header">
+          <span class="wc-header-icon"><el-icon :size="20"><OfficeBuilding/></el-icon></span>
+          <div>
+            <h2 class="wc-header-title">创建工作空间</h2>
+            <p class="wc-header-desc">创建一个新的工作空间并设置管理员</p>
+          </div>
+        </div>
+      </template>
+      <div class="wc-body">
+        <div class="wc-section">
+          <div class="wc-section-header">
+            <span class="wc-section-icon"><el-icon><InfoFilled/></el-icon></span>
+            <h3 class="wc-section-title">基本信息</h3>
+          </div>
+          <div class="wc-section-body">
+            <div class="wc-field">
+              <label class="wc-label">空间名称 <span class="wc-required">*</span></label>
+              <el-input v-model="createForm.workspace_name" placeholder="请输入工作空间名称" clearable class="wc-input" />
+            </div>
+            <div class="wc-field">
+              <label class="wc-label">空间描述</label>
+              <el-input v-model="createForm.workspace_desc" type="textarea" :rows="3" placeholder="请输入工作空间描述（可选）" resize="none" class="wc-textarea" />
+            </div>
+          </div>
+        </div>
+        <div class="wc-section wc-section--amber">
+          <div class="wc-section-header">
+            <span class="wc-section-icon wc-section-icon--amber"><el-icon><Setting/></el-icon></span>
+            <h3 class="wc-section-title">管理员设置</h3>
+          </div>
+          <div class="wc-section-body">
+            <div class="wc-field">
+              <label class="wc-label">选择管理员 <span class="wc-required">*</span></label>
+              <el-select
+                v-model="selectedManagers"
+                multiple
+                filterable
+                remote
+                lazy
+                :remote-method="searchUsersForCreate"
+                :loading="createSearchLoading"
+                placeholder="请输入用户名或昵称搜索用户"
+                value-key="username"
+                class="wc-select"
+              >
+                <el-option
+                  v-for="user in createUserSearchResults"
+                  :key="user.username"
+                  :label="`${user.nickname} (${user.username})`"
+                  :value="user"
+                />
+              </el-select>
+              <p class="wc-hint">最多可选择3个管理员</p>
+            </div>
+          </div>
+        </div>
+      </div>
       <template #footer>
-        <div class="flex justify-end gap-2">
-          <el-button
-            @click="showCreateDialog = false"
-            class="border-gray-200 text-gray-700 hover:bg-gray-50 text-xs py-1 px-2"
-          >
-            取消
-          </el-button>
-          <el-button
-            type="primary"
-            @click="handleCreate"
-            :loading="createLoading"
-            class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 border-none text-xs py-1 px-2"
-          >
-            创建
-          </el-button>
+        <div class="wc-footer">
+          <el-button @click="showCreateDialog = false" class="wc-btn-cancel">取消</el-button>
+          <el-button type="primary" @click="handleCreate" :loading="createLoading" class="wc-btn-primary">创建</el-button>
         </div>
       </template>
     </el-dialog>
@@ -685,7 +673,7 @@
           <el-form-item prop="roleId" class="mb-0">
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full">
               <div
-                v-for="role in roles"
+                v-for="role in roles.filter(r => r.role_name !== '管理员')"
                 :key="role.role_id"
                 class="border-2 border-gray-400 rounded-lg p-4 cursor-pointer transition-all hover:border-blue-500 hover:bg-blue-50 relative group flex items-center"
                 :class="{ 'border-blue-600 bg-blue-100 shadow-sm': joinForm.roleId === role.role_id }"
@@ -740,7 +728,8 @@ import {
   Loading,
   Edit,
   Delete,
-  Warning
+  Warning,
+  Setting
 } from '@element-plus/icons-vue'
 import {
   createWorkspace,
@@ -845,24 +834,11 @@ const selectedManagers = ref([])
 const selectedEditManagers = ref([]) // 编辑对话框中的管理员选择
 
 // 创建表单
-const createFormRef = ref()
 const createForm = reactive({
   workspace_name: '',
   workspace_desc: '',
   manager: [] // 添加管理员字段
 })
-
-// 表单验证规则
-const createRules = {
-  workspace_name: [
-    {required: true, message: '请输入工作空间名称', trigger: 'blur'},
-    {max: 50, message: '名称不能超过50个字符', trigger: 'blur'}
-  ],
-  manager: [
-    {required: true, message: '请至少选择一个管理员', trigger: 'change'},
-    {type: 'array', min: 1, message: '请至少选择一个管理员', trigger: 'change'}
-  ]
-}
 
 // 编辑表单
 const editFormRef = ref()
@@ -1098,15 +1074,21 @@ const openCreateDialog = async () => {
 
 // 创建工作空间
 const handleCreate = async () => {
-  if (!createFormRef.value) return
+  if (!createForm.workspace_name.trim()) {
+    ElMessage.warning('请输入工作空间名称')
+    return
+  }
+  if (createForm.workspace_name.trim().length > 50) {
+    ElMessage.warning('名称不能超过50个字符')
+    return
+  }
+  if (!selectedManagers.value.length) {
+    ElMessage.warning('请至少选择一个管理员')
+    return
+  }
 
+  createLoading.value = true
   try {
-    // 手动触发全表单校验，确保所有字段都校验
-    const valid = await createFormRef.value.validate()
-    if (!valid) return // 校验失败直接返回
-
-    createLoading.value = true
-
     // 构造请求参数
     const requestData = {
       workspace_name: createForm.workspace_name,
@@ -1385,7 +1367,7 @@ const openDowngradeDialog = (manager, workspace_id) => {
     // 设置降级信息
     downgradeInfo.manager = manager;
     downgradeInfo.workspace_id = workspace_id;
-    downgradeInfo.availableRoles = roles.value.filter(role => role.role_name !== 'ADMIN');
+    downgradeInfo.availableRoles = roles.value.filter(role => role.role_name !== '管理员');
     downgradeInfo.resolve = resolve;
     downgradeInfo.reject = reject;
     downgradeForm.role_id = '';
@@ -1535,7 +1517,6 @@ const handleDeleteDialogClose = (done) => {
 const handleCreateDialogClose = (done) => {
   ElMessageBox.confirm('确定要放弃创建吗？已输入的内容将丢失')
     .then(() => {
-      // 重置表单
       createForm.workspace_name = ''
       createForm.workspace_desc = ''
       createForm.manager = []
@@ -1722,7 +1703,227 @@ const selectRole = (role) => {
   z-index: 100;
 }
 
-/* 加入对话框样式 */
+/* ===== 创建工作空间弹窗 ===== */
+.wc-dialog :deep(.el-dialog__header) {
+  padding: 0;
+}
+
+.wc-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.wc-dialog :deep(.el-dialog__footer) {
+  padding: 0;
+}
+
+.wc-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 24px 24px 0;
+}
+
+.wc-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b8af4;
+  flex-shrink: 0;
+}
+
+.wc-header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.wc-header-desc {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #8e8e93;
+}
+
+.wc-body {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.wc-section {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  border-left: 2px solid #4b8af4;
+  overflow: hidden;
+}
+
+.wc-section--amber {
+  border-left-color: #e8962e;
+}
+
+.wc-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #f5f7fd;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.wc-section--amber .wc-section-header {
+  background: #fef8f0;
+}
+
+.wc-section-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #e8f0fe;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b8af4;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.wc-section-icon--amber {
+  background: #fef3e8;
+  color: #e8962e;
+}
+
+.wc-section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.wc-section-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wc-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.wc-required {
+  color: #dc2626;
+}
+
+.wc-hint {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.wc-input .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #fafafa;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.wc-input .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.wc-input .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #5b6ef7 inset;
+  background: #ffffff;
+}
+
+.wc-input .el-input__inner {
+  height: 38px;
+  font-size: 14px;
+}
+
+.wc-textarea .el-textarea__inner {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #fafafa;
+  border: none;
+  font-size: 14px;
+  font-family: inherit;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.wc-textarea .el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.wc-textarea .el-textarea__inner:focus {
+  box-shadow: 0 0 0 2px #5b6ef7 inset;
+  background: #ffffff;
+}
+
+.wc-select {
+  width: 100%;
+}
+
+.wc-select .el-input__wrapper {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #d1d5db inset;
+  background: #fafafa;
+}
+
+.wc-select .el-input__wrapper:hover {
+  box-shadow: 0 0 0 1px #9ca3af inset;
+}
+
+.wc-select .el-input.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px #5b6ef7 inset;
+  background: #ffffff;
+}
+
+.wc-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.wc-btn-cancel {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 20px;
+}
+
+.wc-btn-primary {
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 22px;
+  background: #5b6ef7;
+  border-color: #5b6ef7;
+  box-shadow: 0 1px 3px rgba(91, 110, 247, 0.3);
+  transition: all 0.15s ease;
+}
+
+.wc-btn-primary:hover {
+  background: #4c5fd8;
+  border-color: #4c5fd8;
+  box-shadow: 0 2px 6px rgba(91, 110, 247, 0.4);
+}
+
 :deep(.el-dialog) {
   --el-dialog-border-radius: 12px;
   --el-dialog-padding-primary: 20px 24px;
