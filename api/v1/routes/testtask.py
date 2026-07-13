@@ -2,6 +2,7 @@
 测试任务相关路由
 """
 import asyncio
+import base64
 import json
 import os
 import traceback
@@ -20,6 +21,7 @@ from app.task_monitor.models import store
 from app.task_monitor.screenshot_manager import screenshot_manager
 from app.user.models import UserModel
 from core.auth_middleware import get_current_user
+from core.config import SCREENSHOTS_DIR
 from core.database import get_sync_db, SYNC_SESSION
 from core.response import api_response, HttpErrcode
 from core.enums import TaskStatus
@@ -265,11 +267,7 @@ async def get_job_screenshot(job_id: int, db: Session = Depends(get_sync_db)):
 
 def _read_latest_screenshot(job_id: int) -> str:
     """从文件读取最新的截图"""
-    import base64
-    screenshot_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-        "outputs", "task_screenshot", str(job_id),
-    )
+    screenshot_dir = os.path.join(str(SCREENSHOTS_DIR), str(job_id))
 
     if not os.path.exists(screenshot_dir):
         return ""
@@ -416,10 +414,7 @@ async def job_screenshot_stream(job_id: int, db: Session = Depends(get_sync_db))
                     await asyncio.sleep(1)
                     continue
 
-                screenshot_dir = os.path.join(
-                    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-                    "outputs", "task_screenshot", str(job_id),
-                )
+                screenshot_dir = os.path.join(str(SCREENSHOTS_DIR), str(job_id))
 
                 if os.path.exists(screenshot_dir):
                     files = [f for f in os.listdir(screenshot_dir) if f.endswith(".png")]
@@ -429,7 +424,6 @@ async def job_screenshot_stream(job_id: int, db: Session = Depends(get_sync_db))
                         mtime = os.path.getmtime(file_path)
 
                         if mtime > last_mtime:
-                            import base64
                             with open(file_path, "rb") as f:
                                 screenshot_base64 = base64.b64encode(f.read()).decode("utf-8")
                                 yield f"event: screenshot\ndata: {json.dumps({'screenshot_base64': screenshot_base64}, ensure_ascii=False)}\n\n"

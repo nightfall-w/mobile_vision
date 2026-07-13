@@ -246,7 +246,7 @@
         @size-change="(size) => { pagination.pageSize = size; loadTasks(1) }"
         @current-change="handlePageChange"
         background
-        small
+        size="small"
       />
     </div>
     <!-- 分页：已训练模型 -->
@@ -260,7 +260,7 @@
         @size-change="(size) => { modelPagination.pageSize = size; loadModels(1) }"
         @current-change="handleModelPageChange"
         background
-        small
+        size="small"
       />
     </div>
 
