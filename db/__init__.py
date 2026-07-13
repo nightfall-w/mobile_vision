@@ -7,7 +7,7 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from core.database import SYNC_ENGINE, Base
+from core.database import SYNC_ENGINE, SYNC_SESSION, Base
 from app.user.models import UserModel, SuperAdminModel
 from app.workspace.models import Workspace, MemberRole, WorkspaceMember
 from app.device.devices_models import AndroidDevice
@@ -17,6 +17,15 @@ from app.testcase.models import TestCase
 from app.testtask.models import TestTask, TestJob
 from app.testplan.models import TestPlan, PlanCaseRelation, DeviceLock
 from app.task_monitor.db_models import TaskExecutionRecord, TaskExecutionLog
+
+# 默认角色数据（与 scripts/init_database.sql 保持一致）
+DEFAULT_ROLES = [
+    {"role_id": 1, "role_name": "开发", "role_description": "负责软件开发工作的技术人员"},
+    {"role_id": 2, "role_name": "测试", "role_description": "负责软件测试工作的技术人员"},
+    {"role_id": 3, "role_name": "产品", "role_description": "负责产品设计和规划的人员"},
+    {"role_id": 4, "role_name": "项目经理", "role_description": "负责项目管理和协调的人员"},
+    {"role_id": 7, "role_name": "管理员", "role_description": "拥有workspace下所有权限"},
+]
 
 
 def init_database():
@@ -44,6 +53,28 @@ def init_database():
     print("   - device_lock (设备锁表)")
     print("   - task_execution_record (任务执行记录表)")
     print("   - task_execution_log (任务执行日志表)")
+
+    # 初始化默认数据
+    seed_default_data()
+
+
+def seed_default_data():
+    """初始化默认数据（角色等），与 SQL 脚本一致"""
+    db = SYNC_SESSION()
+    try:
+        for role_data in DEFAULT_ROLES:
+            existing = db.query(MemberRole).filter(
+                MemberRole.role_id == role_data["role_id"]
+            ).first()
+            if not existing:
+                db.add(MemberRole(**role_data))
+        db.commit()
+        print("✅ 默认角色数据初始化成功！")
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️  默认角色数据初始化失败: {e}")
+    finally:
+        db.close()
 
 
 def drop_all_tables():

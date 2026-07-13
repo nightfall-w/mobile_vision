@@ -36,8 +36,13 @@ mysql -u root -p
 CREATE DATABASE IF NOT EXISTS mobile_vision DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 exit
 
-# 初始化表结构
+# 初始化表结构（二选一）
+
+# 方式一：执行 SQL 脚本（推荐，包含表结构和默认数据）
 mysql -u root -p mobile_vision < scripts/init_database.sql
+
+# 方式二：使用 Python 自动建表（建表并初始化默认数据）
+python db/__init__.py
 ```
 
 ---
@@ -70,7 +75,23 @@ ACCESS_TOKEN_EXPIRE_MINUTES=1440
 
 ```
 
+**环境变量说明：**
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| `DB_USER` | 数据库用户名 | root |
+| `DB_PASSWORD` | 数据库密码 | root1234 |
+| `DB_HOST` | 数据库主机 | 127.0.0.1 |
+| `DB_PORT` | 数据库端口 | 3306 |
+| `DB_NAME` | 数据库名 | mobile_vision |
+| `REDIS_HOST` | Redis 主机 | 127.0.0.1 |
+| `REDIS_PORT` | Redis 端口 | 6379 |
+| `REDIS_PASSWORD` | Redis 密码 | (空) |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT Token 有效期（分钟） | 1440 |
+
 ### 3.2 启动服务
+
+#### 生产环境启动
 
 ```bash
 # 终端 1：API 服务（推荐 4 workers）
@@ -78,6 +99,14 @@ uvicorn main:app --host 0.0.0.0 --port 8080 --workers 4
 
 # 终端 2：后台任务消费者（处理测试任务和 YOLO 训练任务）
 python funboost_cli_user.py consume all
+```
+
+#### 开发调试启动
+
+```bash
+# 一键启动（内部调用 uvicorn，自动热重载）
+python main.py
+# 服务运行在 http://localhost:8080
 ```
 
 验证服务是否启动：
@@ -89,9 +118,9 @@ curl http://127.0.0.1:8080/api/v1/health
 
 ---
 
-## 3. 前端部署
+## 4. 前端部署
 
-### 3.1 构建
+### 4.1 构建
 
 ```bash
 cd mobile_vision_web
@@ -105,7 +134,20 @@ npm run build
 
 构建产物在 `mobile_vision_web/dist/` 目录。
 
-### 3.2 配置 API 地址
+### 4.2 开发调试
+
+```bash
+cd mobile_vision_web
+
+# 安装依赖
+npm install
+
+# 启动开发服务器（热重载）
+npm run dev
+# 默认运行在 http://localhost:5173
+```
+
+### 4.3 配置 API 地址
 
 编辑 `mobile_vision_web/.env.production`：
 
@@ -116,7 +158,7 @@ VITE_APP_SERVER_URL = "http://your-server-ip:8080"
 
 如果前端和后端部署在同一台服务器，也可以保持 `127.0.0.1`，然后通过 Nginx 对外提供服务。
 
-### 3.3 使用 Nginx 部署
+### 4.4 使用 Nginx 部署
 
 ```nginx
 server {
@@ -158,9 +200,9 @@ server {
 
 ---
 
-## 4. 安卓设备连接
+## 5. 安卓设备连接
 
-### 4.1 有线连接
+### 5.1 有线连接
 
 ```bash
 # 连接真机（开启开发者选项和 USB 调试）
@@ -168,7 +210,7 @@ adb devices
 # 应看到设备 serial number，状态为 device
 ```
 
-### 4.2 无线 ADB 连接
+### 5.2 无线 ADB 连接
 
 ```bash
 # 1. 确保设备和电脑在同一局域网
@@ -182,7 +224,7 @@ adb connect <设备IP>:5555
 adb devices
 ```
 
-### 4.3 模拟器连接
+### 5.3 模拟器连接
 
 Android Studio 自带模拟器会自动连接 ADB，无需额外配置。
 
@@ -193,7 +235,7 @@ adb devices
 
 ---
 
-## 5. 验证部署
+## 6. 验证部署
 
 1. 打开 `http://your-server-ip`（或 Nginx 配置的域名）
 2. 使用 `.env` 中配置的管理员账号登录
@@ -203,7 +245,7 @@ adb devices
 
 ---
 
-## 6. 进程管理（推荐）
+## 7. 进程管理（推荐）
 
 使用 supervisor 管理后端进程，确保服务持续运行：
 
@@ -233,7 +275,7 @@ stderr_logfile=/var/log/mobile_vision_consumer.err
 
 ---
 
-## 7. 常见问题
+## 8. 常见问题
 
 **Q: MySQL 连接报错 `Authentication plugin 'caching_sha2_password'`**
 
