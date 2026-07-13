@@ -11,7 +11,6 @@ import TestCaseForm from '@/views/TestCaseForm.vue'
 
 import YoloDatasets from '@/views/YoloDatasets.vue'
 import YoloTraining from '@/views/YoloTraining.vue'
-import YoloModels from '@/views/YoloModels.vue'
 import YoloAnnotation from '@/views/YoloAnnotation.vue'
 import DeviceManager from '@/views/DeviceManager.vue'
 import LLMCredential from '@/views/LLMCredential.vue'
@@ -80,15 +79,7 @@ const routes = [
   },
   {
     path: '/yolo/models',
-    component: UnifiedLayout,
-    children: [
-      {
-        path: '',
-        name: 'YoloModels',
-        component: YoloModels,
-        meta: {requiresAuth: true}
-      }
-    ]
+    redirect: '/yolo/training?tab=models'
   },
   {
     path: '/yolo/annotation/:datasetId',

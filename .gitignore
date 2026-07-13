@@ -205,10 +205,9 @@ logs/
 temp/
 runs/
 outputs/
-models/yolo/models/
-models/yolo/output/
-models/yolo/runs/
-models/yolo/data/
+models/yolo/
+data/yolo/
+storage/
 
 mobile_vision_web/node_modules/
 mobile_vision_web/dist/

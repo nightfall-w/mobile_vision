@@ -8,7 +8,7 @@ from typing import List, Dict
 from pathlib import Path
 
 from core.response import HttpErrcode, api_response
-from core.config import PROJECT_ROOT
+from core.config import YOLO_DATASETS_DIR
 from core.auth_middleware import get_current_user
 from app.user.models import UserModel
 from app.yolo.controller import (
@@ -18,8 +18,7 @@ from app.yolo.controller import (
 
 router = APIRouter(prefix="/annotation", tags=["标注"])
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
+DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
 
 
 @router.get("/{dataset_id}/{image_name:path}")

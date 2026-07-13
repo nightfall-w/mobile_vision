@@ -108,8 +108,8 @@ export function createYoloDataset(params) {
   });
 }
 
-export function getYoloDatasets() {
-  return request.get('/api/v1/dataset/list');
+export function getYoloDatasets(params = {}) {
+  return request.get('/api/v1/dataset/list', params);
 }
 
 export function getYoloDataset(datasetId) {
@@ -231,6 +231,10 @@ export function updateLLMCredential(params) {
 
 export function deleteLLMCredential(id) {
   return request.delete('/api/v1/llm/credential/delete', {params: {id}});
+}
+
+export function testLLMConnection(params) {
+  return request.post('/api/v1/llm/credential/test', params);
 }
 
 /* ==================== 用例管理接口 ==================== */

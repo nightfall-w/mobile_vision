@@ -14,16 +14,16 @@ from app.yolo.controller import (
     create_model,
     generate_data_yaml
 )
-from core.config import PROJECT_ROOT
+from core.config import YOLO_DATASETS_DIR, YOLO_BASE_MODELS_DIR, YOLO_MODELS_DIR, YOLO_TRAIN_RUNS_DIR
 from core.enums import TaskStatus
 from models.yolo.trainer import YOLOTrainer
 from utils.task_cancel import check_cancel_signal, TaskCancelledException
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
+DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
 
 
-def find_latest_train_dir(base_path: str = '/Users/baojunw/Desktop/毕设/mobile_vision/runs/detect') -> str | None:
+def find_latest_train_dir(base_path: str = None) -> str | None:
+    base_path = base_path or str(YOLO_TRAIN_RUNS_DIR)
     """查找最新的 train 目录"""
     import glob
     train_dirs = glob.glob(os.path.join(base_path, 'train*'))
@@ -104,7 +104,9 @@ def train_yolo_model(task_data: dict):
             if '/' in model_name or '\\' in model_name or model_name.startswith('.'):
                 model_path = model_name
             else:
-                model_path = str(YOLO_ROOT / model_name)
+                model_path = str(YOLO_BASE_MODELS_DIR / model_name)
+                if not os.path.exists(model_path):
+                    model_path = str(YOLO_MODELS_DIR / model_name)
 
         print(f"[FunBoost] 任务 {task_id}: 使用模型: {model_path}")
 
@@ -140,8 +142,7 @@ def train_yolo_model(task_data: dict):
 
         model_path = results.get('model_path')
         if model_path:
-            model_dir = YOLO_ROOT / 'models'
-            model_dir.mkdir(exist_ok=True)
+            model_dir = YOLO_MODELS_DIR
 
             model_name = f"yolo_{task_id}_{dataset_id}.pt"
             final_model_path = model_dir / model_name

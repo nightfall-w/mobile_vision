@@ -20,3 +20,10 @@ router.include_router(testcase.router)
 router.include_router(testtask.router)
 router.include_router(testplan.router)
 router.include_router(monitor.router)
+
+
+@router.get("/health")
+async def health_check():
+    """健康检查接口"""
+    from core.response import api_response
+    return api_response(data="ok")

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Query, Depends
 from pathlib import Path
 
 from core.response import HttpErrcode, api_response
-from core.config import PROJECT_ROOT
+from core.config import YOLO_BASE_MODELS_DIR
 from core.enums import TaskStatus
 from core.auth_middleware import get_current_user
 from app.user.models import UserModel
@@ -24,16 +24,13 @@ from services.yolo_train_consumer import submit_train_task
 
 router = APIRouter(prefix="/train", tags=["训练"])
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-
-
 @router.get("/models")
 async def list_models_api(current_user: UserModel = Depends(get_current_user)):
     """获取可用的预训练模型列表（包含基础模型和已训练模型）"""
     models = []
 
-    if YOLO_ROOT.exists():
-        for pt_file in YOLO_ROOT.glob('*.pt'):
+    if YOLO_BASE_MODELS_DIR.exists():
+        for pt_file in YOLO_BASE_MODELS_DIR.glob('*.pt'):
             models.append({
                 'name': pt_file.name,
                 'path': str(pt_file),
@@ -42,6 +39,7 @@ async def list_models_api(current_user: UserModel = Depends(get_current_user)):
             })
 
     trained_models = get_all_models()
+
     for model in trained_models:
         models.append({
             'name': model['name'],
@@ -96,7 +94,7 @@ async def start_training_api(
         'optimizer': optimizer
     }
 
-    task = create_task(dataset_id, train_config)
+    task = create_task(dataset_id, train_config, create_user=current_user.username)
 
     submit_train_task(task['id'])
 

@@ -25,42 +25,6 @@
 
       <!-- 右侧用户操作区 -->
       <div class="flex items-center space-x-6 text-white">
-        <!-- 通知铃铛（示例） -->
-        <el-dropdown trigger="click" placement="bottom-end" @command="handleNotifyCommand">
-          <el-icon class="text-xl cursor-pointer">
-            <Notification/>
-          </el-icon>
-          <template #dropdown>
-            <el-dropdown-menu style="width: 500px">
-              <!-- 如果通知数组为空 -->
-              <el-dropdown-item v-if="notifications.length === 0" disabled>
-                <div class="text-center text-gray-500">暂无通知</div>
-              </el-dropdown-item>
-
-              <!-- 如果通知数组不为空，遍历展示通知 -->
-              <el-dropdown-item
-                v-for="(note, index) in notifications"
-                :key="index"
-                :command="note"
-              >
-                <div class="font-medium">{{ note.title }}</div>&nbsp;
-                <div class="text-xs text-gray-600 truncate w-68">{{ note.content }}</div>&nbsp;&nbsp;
-                <div class="text-xs text-gray-500">{{ note.time }}</div>
-              </el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-
-        <!-- 设置按钮（仅管理员可见） -->
-        <el-icon
-          v-if="isEnvAdmin || isAdmin"
-          class="text-xl cursor-pointer"
-          @click="goToSystemConfig"
-          title="系统管理"
-        >
-          <Setting/>
-        </el-icon>
-
         <!-- 用户信息 -->
         <div class="flex items-center space-x-2">
           <el-icon>
@@ -135,26 +99,11 @@
 </template>
 
 <script setup>
-import {ElImage, ElHeader, ElIcon, ElDropdown, ElDropdownMenu, ElDropdownItem} from 'element-plus'
-import {Notification, ArrowDown, User, Message, SwitchButton, Setting} from '@element-plus/icons-vue'
-import {onMounted, ref, reactive, computed, onBeforeMount} from 'vue'
+import {ElImage, ElHeader, ElIcon} from 'element-plus'
+import {ArrowDown, User, Message, SwitchButton} from '@element-plus/icons-vue'
+import {onMounted, ref, reactive} from 'vue'
 import router from "@/router"
 import logo from '@/assets/logo.png'
-import { getExtraAdminList } from '@/network/api.js'
-
-// 模拟通知数据
-const notifications = ref([
-  {
-    title: '系统消息',
-    content: '您有一条新的测试任务待处理',
-    time: '刚刚'
-  },
-  {
-    title: '模型更新',
-    content: 'AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性AI模型 v2.3 已发布，请注意兼容性',
-    time: '1 小时前'
-  }
-])
 
 // 用户名显示
 const username = ref('未登录')
@@ -167,41 +116,10 @@ const currentUser = reactive({
   email: ''
 })
 
-// 额外管理员列表
-const extraAdmins = ref([])
-
-// 计算属性：判断是否为环境变量中的超级管理员（id=0）
-const isEnvAdmin = computed(() => {
-  return currentUser.id === 0
-})
-
-// 计算属性：判断是否为额外添加的管理员
-const isAdmin = computed(() => {
-  // 检查当前用户是否在额外管理员列表中
-  return extraAdmins.value.some(admin => admin.id === currentUser.id)
-})
-
-// 组件挂载前获取管理员列表
-onBeforeMount(() => {
-  fetchAdminList()
-})
-
 // 组件挂载时读取用户信息
 onMounted(() => {
   loadUserInfo()
 })
-
-// 获取管理员列表
-const fetchAdminList = async () => {
-  try {
-    const res = await getExtraAdminList()
-    if (res.code === 0) {
-      extraAdmins.value = res.data || []
-    }
-  } catch (error) {
-    console.error('获取管理员列表失败:', error)
-  }
-}
 
 // 从 localStorage 加载用户信息
 const loadUserInfo = () => {
@@ -225,11 +143,6 @@ const goHome = () => {
   router.push('/')
 }
 
-// 跳转到系统配置页面
-const goToSystemConfig = () => {
-  router.push('/system-config')
-}
-
 // 处理下拉菜单事件
 const handleCommand = (command) => {
   switch (command) {
@@ -250,13 +163,6 @@ const handleCommand = (command) => {
   }
 }
 
-const handleNotifyCommand = (command) => {
-  switch (command) {
-    case 'notify':
-      console.log('查看通知')
-      break
-  }
-}
 </script>
 
 <style scoped>

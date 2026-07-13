@@ -2,26 +2,25 @@
   <div class="yolo-models">
     <!-- 固定区域：标题卡片和筛选区域 -->
     <div class="sticky-header">
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden bg-white">
-      <div class="relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100 to-purple-100 rounded-full -mr-24 -mt-24 opacity-70"></div>
-        <div class="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full -ml-18 -mb-18 opacity-70"></div>
-        <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center p-4 z-10">
-          <div class="page-header mb-3 md:mb-0">
-            <h1 class="text-xl font-bold text-gray-800 mb-1">模型管理</h1>
-            <p class="text-sm text-gray-600">管理YOLO目标检测训练模型</p>
+      <div class="ym-header-card">
+        <div class="ym-header-inner">
+          <div class="ym-title-group">
+            <div class="ym-icon-wrap"><el-icon :size="18"><Aim /></el-icon></div>
+            <div>
+              <h1 class="ym-title">模型管理</h1>
+              <p class="ym-subtitle">管理已训练的 YOLO 模型</p>
+            </div>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <el-button type="success" @click="loadModels()" class="text-sm px-4">
-              <el-icon class="mr-1" :size="14"><Refresh /></el-icon> 刷新
+          <div class="ym-header-actions">
+            <el-button @click="loadModels()" size="small">
+              <el-icon><Refresh /></el-icon> 刷新
             </el-button>
           </div>
         </div>
       </div>
-    </el-card>
 
-    <el-card class="filter-card rounded-xl shadow-md border-0 bg-white">
-      <div class="flex flex-wrap items-center gap-4 p-4">
+    <div class="filter-card">
+      <div class="filter-inner">
         <el-input v-model="searchKeyword" placeholder="搜索模型名称" class="w-44" size="default" @keyup.enter="handleSearch">
           <template #prefix><el-icon :size="14"><Search /></el-icon></template>
         </el-input>
@@ -29,12 +28,12 @@
           <el-icon :size="14"><Search /></el-icon> 查询
         </el-button>
       </div>
-    </el-card>
+    </div>
     </div>
 
     <!-- 滚动内容区域 -->
     <div class="scroll-content">
-    <el-card class="table-card rounded-xl shadow-md border-0 bg-white">
+    <div class="table-card">
       <div class="table-container">
         <el-table
           :data="models"
@@ -42,8 +41,8 @@
           element-loading-text="加载中..."
           style="width: 100%"
           :cell-style="{ textAlign: 'center' }"
-          :header-cell-style="{ textAlign: 'center', backgroundColor: '#f5f7fa', color: '#606266' }"
-          border
+          :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
+          stripe
           empty-text="暂无训练好的模型"
           :height="tableHeight"
         >
@@ -93,18 +92,20 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">
-              <el-button type="info" size="small" @click="showModelDetail(row)">详情</el-button>
-              <el-button type="primary" size="small" @click="openTestModelDialog(row)">测试</el-button>
-              <el-button type="danger" size="small" @click="removeModel(row.id)">删除</el-button>
+              <button class="ym-act ym-act-detail" @click="showModelDetail(row)">详情</button>
+              <button class="ym-act ym-act-test" @click="openTestModelDialog(row)">测试</button>
+              <button class="ym-act ym-act-del" @click="removeModel(row.id)">删除</button>
             </div>
           </template>
         </el-table-column>
       </el-table>
     </div>
 
-    </el-card>
+    </div>
 
-    <div class="table-footer">
+    </div>
+
+    <div class="ym-page-footer">
       <el-pagination
         :current-page="pagination.page"
         :page-size="pagination.pageSize"
@@ -114,13 +115,29 @@
         @size-change="(size) => { pagination.pageSize = size; loadModels(1) }"
         @current-change="handlePageChange"
         background
+        small
       />
     </div>
-    </div>
 
-    <el-dialog v-model="showTestModelDialog" title="测试模型" width="600px">
-      <el-form :model="testForm" label-width="100px">
-        <el-form-item label="选择图片">
+    <el-dialog v-model="showTestModelDialog" width="640px">
+      <template #header>
+        <div class="tm-dialog-header">
+          <div class="tm-header-icon">
+            <el-icon><Aim /></el-icon>
+          </div>
+          <div class="tm-header-text">
+            <span class="tm-title">测试模型</span>
+            <span class="tm-subtitle">上传图片进行模型推理测试</span>
+          </div>
+        </div>
+      </template>
+
+      <div class="tm-section tm-section--blue">
+        <div class="tm-section-header">
+          <span class="tm-section-icon"><el-icon><UploadFilled /></el-icon></span>
+          <span class="tm-section-title">选择图片</span>
+        </div>
+        <div class="tm-section-body">
           <el-upload
             ref="testUploadRef"
             :auto-upload="false"
@@ -133,32 +150,52 @@
             <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
             <div class="el-upload__text">拖拽图片到此处，或 <em>点击上传</em></div>
           </el-upload>
-        </el-form-item>
-        <el-form-item label="置信度阈值">
-          <el-slider v-model="confidenceThreshold" :min="0" :max="1" :step="0.05" />
-        </el-form-item>
-      </el-form>
-
-      <div v-if="testResults" class="test-results">
-        <h4>检测结果:</h4>
-        <div class="result-image">
-          <img 
-            v-if="testImageUrl" 
-            :src="testImageUrl" 
-            alt="检测结果" 
-            class="clickable-image"
-            @click="showImagePreview = true"
-          />
-          <p class="image-hint">点击图片放大查看</p>
         </div>
-        <div class="result-list">
-          <el-alert
-            v-for="(result, index) in testResults.predictions"
-            :key="index"
-            :title="`${result.class_name} - 置信度: ${(result.confidence * 100).toFixed(1)}%`"
-            type="info"
-            show-icon
-          />
+      </div>
+
+      <div class="tm-section tm-section--amber">
+        <div class="tm-section-header">
+          <span class="tm-section-icon"><el-icon><TrendCharts /></el-icon></span>
+          <span class="tm-section-title">置信度阈值</span>
+          <span class="tm-section-value">{{ (confidenceThreshold * 100).toFixed(0) }}%</span>
+        </div>
+        <div class="tm-section-body">
+          <el-slider v-model="confidenceThreshold" :min="0" :max="1" :step="0.05" />
+        </div>
+      </div>
+
+      <div v-if="testResults" class="tm-section tm-section--green">
+        <div class="tm-section-header">
+          <span class="tm-section-icon"><el-icon><List /></el-icon></span>
+          <span class="tm-section-title">检测结果</span>
+          <span class="tm-section-badge">{{ testResults.predictions.length }} 个目标</span>
+        </div>
+        <div class="tm-section-body">
+          <div class="tm-result-image">
+            <img
+              v-if="testImageUrl"
+              :src="testImageUrl"
+              alt="检测结果"
+              class="tm-preview-img"
+              @click="showImagePreview = true"
+            />
+            <p class="tm-image-hint">点击图片放大查看</p>
+          </div>
+          <div v-if="testResults.predictions.length > 0" class="tm-result-list">
+            <div
+              v-for="(result, index) in testResults.predictions"
+              :key="index"
+              class="tm-result-item"
+            >
+              <span class="tm-result-name">{{ result.class_name }}</span>
+              <span class="tm-result-conf" :class="confidenceLevel(result.confidence)">
+                {{ (result.confidence * 100).toFixed(1) }}%
+              </span>
+            </div>
+          </div>
+          <div v-else class="tm-empty">
+            <span>未检测到目标，请尝试降低置信度阈值</span>
+          </div>
         </div>
       </div>
 
@@ -169,7 +206,7 @@
             <button class="control-btn reset-btn" @click="resetView">↺</button>
             <span class="scale-info">{{ Math.round(scale * 100) }}%</span>
           </div>
-          <div 
+          <div
             class="image-wrapper"
             @wheel="handleWheel"
             @mousedown="handleMouseDown"
@@ -178,10 +215,10 @@
             @mouseleave="handleMouseUp"
             @dblclick="handleDoubleClick"
           >
-            <img 
+            <img
               ref="imageRef"
-              :src="testImageUrl" 
-              alt="放大预览" 
+              :src="testImageUrl"
+              alt="放大预览"
               class="preview-image"
               :style="{
                 transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
@@ -196,8 +233,8 @@
       </div>
 
       <template #footer>
-        <el-button @click="showTestModelDialog = false">取消</el-button>
-        <el-button type="primary" @click="testModel" :loading="testing">测试</el-button>
+        <el-button class="tm-btn-cancel" @click="showTestModelDialog = false">取消</el-button>
+        <el-button class="tm-btn-primary" type="primary" @click="testModel" :loading="testing">开始测试</el-button>
       </template>
     </el-dialog>
 
@@ -330,9 +367,9 @@
                      class="border-gray-200 text-gray-700 hover:bg-gray-100 text-sm py-1.5 px-4 rounded-lg">
             取消
           </el-button>
-          <el-button type="danger" @click="confirmDeleteModel"
+          <el-button type="danger" @click="confirmDeleteModel" :disabled="deleteCountdown > 0"
                      class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-none text-sm py-1.5 px-4 rounded-lg">
-            确定删除
+            {{ deleteCountdown > 0 ? '确认删除 (' + deleteCountdown + 's)' : '确定删除' }}
           </el-button>
         </div>
       </template>
@@ -341,8 +378,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
-import { Refresh, UploadFilled, Warning, Search } from '@element-plus/icons-vue'
+import { ref, onMounted, computed, watch } from 'vue'
+import { Refresh, UploadFilled, Warning, Search, Aim, TrendCharts, List } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getModelsList, deleteModel as deleteModelApi, predictImage } from '@/network/api'
 
@@ -352,6 +389,8 @@ const drawerVisible = ref(false)
 const currentModel = ref(null)
 const showDeleteModelDialog = ref(false)
 const deleteModelInfo = ref({ id: null, name: '' })
+const deleteCountdown = ref(0)
+let deleteTimer = null
 const searchKeyword = ref('')
 
 const pagination = ref({
@@ -416,9 +455,20 @@ const removeModel = (id) => {
     name: model ? model.name : '未知模型'
   }
   showDeleteModelDialog.value = true
+  deleteCountdown.value = 5
+  clearInterval(deleteTimer)
+  deleteTimer = setInterval(() => {
+    deleteCountdown.value--
+    if (deleteCountdown.value <= 0) {
+      clearInterval(deleteTimer)
+      deleteTimer = null
+    }
+  }, 1000)
 }
 
 const confirmDeleteModel = async () => {
+  clearInterval(deleteTimer)
+  deleteTimer = null
   try {
     const resp = await deleteModelApi(deleteModelInfo.value.id)
     if (resp.code === 0) {
@@ -449,11 +499,22 @@ const openTestModelDialog = (model) => {
 }
 
 const handleTestFileChange = (file, fileList) => {
-  testFiles.value = fileList
+  // 只保留最新的文件，实现单文件自动替换
+  testFiles.value = fileList.slice(-1)
+  testResults.value = null
+  testImageUrl.value = ''
 }
 
 const handleTestFileRemove = (file, fileList) => {
   testFiles.value = fileList
+  testResults.value = null
+  testImageUrl.value = ''
+}
+
+const confidenceLevel = (conf) => {
+  if (conf >= 0.8) return 'conf-high'
+  if (conf >= 0.5) return 'conf-mid'
+  return 'conf-low'
 }
 
 const testModel = async () => {
@@ -577,6 +638,14 @@ const formatFileSize = (bytes) => {
   return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB'
 }
 
+const stopCountdown = () => {
+  clearInterval(deleteTimer)
+  deleteTimer = null
+  deleteCountdown.value = 0
+}
+
+watch(showDeleteModelDialog, (val) => { if (!val) stopCountdown() })
+
 onMounted(() => {
   loadModels()
 })
@@ -607,19 +676,36 @@ onMounted(() => {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  padding-top: 10px;
 }
 
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-}
+.ym-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+.ym-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.ym-title-group { display: flex; align-items: center; gap: 12px; }
+.ym-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ym-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.ym-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.ym-header-actions { display: flex; gap: 8px; }
 
 .filter-card {
-  background: white;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+}
+
+.filter-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
 }
 
 .table-card {
-  background: white;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+  overflow: hidden;
+  flex-shrink: 0;
 }
 
 .page-header {
@@ -636,31 +722,32 @@ onMounted(() => {
 
 .action-buttons {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   justify-content: center;
 }
 
-.action-buttons .el-button {
-  padding: 6px 12px;
+.ym-act {
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-weight: 500;
 }
+
+.ym-act-detail { background: #eef2ff; color: #5b6ef7; }
+.ym-act-detail:hover { background: #dde3ff; }
+.ym-act-test { background: #ecfdf5; color: #059669; }
+.ym-act-test:hover { background: #d1fae5; }
+.ym-act-del { background: #fef2f2; color: #dc2626; }
+.ym-act-del:hover { background: #fee2e2; }
 
 .table-container {
-  padding: 20px;
+  padding: 0;
 }
 
-.table-footer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 20px;
-  margin-top: 10px;
-  background-color: white;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
+.ym-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 
 .id-text {
   font-family: monospace;
@@ -757,38 +844,223 @@ onMounted(() => {
   color: #606266;
 }
 
-.test-results {
-  margin-top: 20px;
+/* ===== SwiftUI 风格测试模型弹窗 ===== */
+.tm-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
 }
 
-.result-image {
-  text-align: center;
-  margin: 10px 0;
+.tm-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  background: #eef2ff;
+  color: #5b6ef7;
 }
 
-.result-image img {
-  max-width: 100%;
-  max-height: 400px;
-  border: 1px solid #ddd;
+.tm-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
-.result-list {
-  margin-top: 10px;
+.tm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
-.clickable-image {
-  cursor: pointer;
-  transition: transform 0.2s ease;
-}
-
-.clickable-image:hover {
-  transform: scale(1.02);
-}
-
-.image-hint {
+.tm-subtitle {
   font-size: 12px;
-  color: #909399;
-  margin-top: 5px;
+  color: #9ca3af;
+}
+
+/* 分区卡片 */
+.tm-section {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  margin-bottom: 14px;
+  overflow: hidden;
+}
+
+.tm-section--blue {
+  border-left: 3px solid #4b8af4;
+}
+
+.tm-section--amber {
+  border-left: 3px solid #e8962e;
+}
+
+.tm-section--green {
+  border-left: 3px solid #34d399;
+}
+
+.tm-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tm-section--blue .tm-section-header {
+  background: #f5f9fd;
+}
+
+.tm-section--amber .tm-section-header {
+  background: #fefaf5;
+}
+
+.tm-section--green .tm-section-header {
+  background: #f4fdf8;
+}
+
+.tm-section-icon {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.tm-section--blue .tm-section-icon {
+  background: #e8f0fe;
+  color: #4b8af4;
+}
+
+.tm-section--amber .tm-section-icon {
+  background: #fef3e8;
+  color: #e8962e;
+}
+
+.tm-section--green .tm-section-icon {
+  background: #e8faf0;
+  color: #34d399;
+}
+
+.tm-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.tm-section-value {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e8962e;
+  background: #fef3e8;
+  padding: 1px 9px;
+  border-radius: 10px;
+}
+
+.tm-section-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #34d399;
+  background: #e8faf0;
+  padding: 1px 9px;
+  border-radius: 10px;
+}
+
+.tm-section-body {
+  padding: 14px;
+}
+
+.tm-result-image {
+  text-align: center;
+  margin-bottom: 14px;
+}
+
+.tm-preview-img {
+  max-width: 100%;
+  max-height: 360px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease;
+}
+
+.tm-preview-img:hover {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+.tm-image-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 6px;
+}
+
+.tm-result-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tm-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.tm-result-name {
+  font-weight: 500;
+  color: #374151;
+}
+
+.tm-result-conf {
+  font-weight: 600;
+  font-size: 12px;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+
+.tm-result-conf.conf-high {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.tm-result-conf.conf-mid {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.tm-result-conf.conf-low {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.tm-empty {
+  text-align: center;
+  padding: 20px;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
+.tm-btn-cancel {
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.tm-btn-primary {
+  border-radius: 8px;
+  font-size: 13px;
 }
 
 .image-preview-overlay {
@@ -797,12 +1069,13 @@ onMounted(() => {
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.8);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   justify-content: center;
   align-items: center;
   z-index: 2000;
   cursor: pointer;
+  backdrop-filter: blur(4px);
 }
 
 .preview-container {

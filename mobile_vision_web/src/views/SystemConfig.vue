@@ -56,8 +56,9 @@
           v-loading="loading"
           style="width: 100%"
           class="config-table"
-          header-row-class-name="table-header"
-          row-class-name="table-row"
+          stripe
+          :cell-style="{ textAlign: 'center' }"
+          :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
         >
           <el-table-column prop="key" label="键名" min-width="150">
             <template #default="scope">
@@ -135,7 +136,7 @@
     </div>
 
     <!-- 固定在底部的分页 -->
-    <div v-if="hasPermission" class="pagination-container">
+    <div v-if="hasPermission" class="sc-page-footer">
       <el-pagination
         v-model:current-page="pagination.currentPage"
         v-model:page-size="pagination.pageSize"
@@ -144,7 +145,8 @@
         layout="total, sizes, prev, pager, next, jumper"
         @size-change="handleSizeChange"
         @current-change="handleCurrentChange"
-        size="small"
+        background
+        small
       />
     </div>
 
@@ -1094,83 +1096,16 @@ const goToHome = () => {
 }
 
 .table-container {
-  background: white;
+  background: #fff;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   overflow: hidden;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid #ebeef5;
+  flex-shrink: 0;
 }
 
 .config-table {
   border: none;
   flex: 1;
-}
-
-/* 表格头部样式 */
-:deep(.table-header th) {
-  background: #f8fafc !important;
-  color: #2c3e50 !important;
-  font-weight: 700 !important;
-  font-size: 15px !important;
-  padding: 18px 0 !important;
-  border-bottom: 1px solid rgba(235, 238, 245, 0.5) !important;
-  position: relative;
-  text-align: center !important;
-}
-
-:deep(.table-header th):first-child {
-  border-top-left-radius: 12px;
-}
-
-:deep(.table-header th):last-child {
-  border-top-right-radius: 12px;
-}
-
-:deep(.table-header th:hover) {
-  background: #edf2f7 !important;
-}
-
-/* 表格行样式 */
-:deep(.table-row td) {
-  color: #34495e;
-  transition: all 0.3s ease;
-  font-size: 15px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  padding: 16px 0 !important;
-  border-color: rgba(235, 238, 245, 0.5) !important;
-  background-color: rgba(250, 250, 250, 0.5) !important;
-}
-
-:deep(.table-row:nth-child(even) td) {
-  background-color: rgba(255, 255, 255, 0.7) !important;
-}
-
-:deep(.table-row td::before) {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index: -1;
-}
-
-:deep(.table-row:hover td) {
-  background-color: transparent !important;
-  color: #2c3e50;
-  transform: scale(1.02);
-}
-
-:deep(.table-row:hover td::before) {
-  opacity: 1;
 }
 
 /* 标签样式 */
@@ -1445,20 +1380,7 @@ const goToHome = () => {
   padding-left: 2px;
 }
 
-.pagination-container {
-  background: white;
-  padding: 10px 15px;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.06);
-  display: flex;
-  justify-content: center;
-  position: sticky;
-  bottom: 0;
-  z-index: 100;
-  border-radius: 0 0 6px 6px;
-  border: 1px solid #ebeef5;
-  margin-top: 10px;
-}
+.sc-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 
 /* 响应式调整 */
 @media (max-width: 768px) {

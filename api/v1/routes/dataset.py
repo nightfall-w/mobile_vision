@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 
 from core.response import HttpErrcode, api_response
-from core.config import PROJECT_ROOT
+from core.config import YOLO_DATASETS_DIR
 from core.auth_middleware import get_current_user
 from app.user.models import UserModel
 from app.yolo.controller import (
@@ -27,8 +27,7 @@ from app.yolo.controller import (
 
 router = APIRouter(prefix="/dataset", tags=["数据集"])
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
+DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
 
 
 @router.post("/create")
@@ -38,14 +37,18 @@ async def create_dataset_api(
         current_user: UserModel = Depends(get_current_user)
 ):
     """创建数据集"""
-    dataset = create_dataset(name, description, [])
+    dataset = create_dataset(name, description, [], create_user=current_user.username)
     return api_response(data=dataset, message="数据集创建成功")
 
 
 @router.get("/list")
-async def list_dataset_api(current_user: UserModel = Depends(get_current_user)):
-    """数据集列表"""
-    datasets = get_datasets()
+async def list_dataset_api(
+    keyword: Optional[str] = Query(None, description="搜索关键词（按名称模糊匹配）"),
+    status: Optional[str] = Query(None, description="状态筛选"),
+    current_user: UserModel = Depends(get_current_user)
+):
+    """数据集列表，支持按名称搜索"""
+    datasets = get_datasets(keyword=keyword, status=status)
     return api_response(data=datasets)
 
 
@@ -66,9 +69,12 @@ async def delete_dataset_api(
     dataset_id: str,
     current_user: UserModel = Depends(get_current_user)
 ):
-    """删除数据集"""
-    delete_dataset(dataset_id)
-    return api_response(message="数据集删除成功")
+    """删除数据集（仅创建人可删除）"""
+    try:
+        delete_dataset(dataset_id, current_user=current_user.username)
+        return api_response(message="数据集删除成功")
+    except PermissionError as e:
+        return api_response(code=HttpErrcode.PARAMS_ERROR, message=str(e))
 
 
 @router.post("/{dataset_id}/recount")

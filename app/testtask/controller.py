@@ -151,7 +151,7 @@ class TestTaskCRUD:
         # 先清理 Redis：从设备队列移除 Job、释放设备锁、清理执行状态
         jobs = db.query(TestJob).filter(TestJob.task_id == task_id, TestJob.is_deleted == False).all()
         for job in jobs:
-            remove_task_from_queue(str(job.device_id), job.job_id)
+            remove_task_from_queue(str(job.device_android_id), job.job_id)
             store.delete_task(job.job_id)
         device_ids = set(job.device_id for job in jobs)
         for device_id in device_ids:
@@ -211,7 +211,7 @@ class TestTaskCRUD:
 
 def _abort_single_job(db: Session, job: TestJob):
     """内部方法：放弃单个 Job（仅处理 pending 和 running 状态）"""
-    remove_task_from_queue(str(job.device_id), job.job_id)
+    remove_task_from_queue(str(job.device_android_id), job.job_id)
 
     if job.status == TaskStatus.PENDING.value:
         job.status = TaskStatus.ABORTED.value

@@ -408,6 +408,7 @@ def distribute_tasks_to_devices(tasks: list, devices: list, task_id: int, plan_i
     job_ids = []
     device_status = {}
     device_task_map = {d.id: [] for d in devices}
+    device_android_map = {d.id: d.android_id for d in devices}  # device.id → android_id
 
     # 轮询分配任务到设备
     for i, relation in enumerate(tasks):
@@ -438,12 +439,12 @@ def distribute_tasks_to_devices(tasks: list, devices: list, task_id: int, plan_i
             db.commit()
             db.refresh(job)
 
-            add_task_to_device_queue(device.id, job.job_id)
+            add_task_to_device_queue(device_android_map[device.id], job.job_id)
             job_ids.append(job.job_id)
 
         # 如果设备空闲，启动第一个任务；否则只加入队列等待
         if not is_device_locked(device_id, db):
-            first_job_id = pop_next_task(device_id)
+            first_job_id = pop_next_task(device_android_map[device_id])
             if first_job_id:
                 lock_device(device_id, first_job_id, plan_id, db)
                 submit_test_task(first_job_id)
@@ -557,11 +558,11 @@ async def execute_plan(
                     db.commit()
                     db.refresh(job)
 
-                    add_task_to_device_queue(current_device_id, job.job_id)
+                    add_task_to_device_queue(android_id, job.job_id)
                     job_ids.append(job.job_id)
 
                 if not is_device_locked(current_device_id, db):
-                    first_job_id = pop_next_task(current_device_id)
+                    first_job_id = pop_next_task(android_id)
                     if first_job_id:
                         lock_device(current_device_id, first_job_id, plan_id, db)
                         submit_test_task(first_job_id)
@@ -716,7 +717,7 @@ async def get_available_devices_for_plan(
     device_list = []
     for device in available_devices:
         from app.testplan.device_queue import get_queue_length
-        queue_length = get_queue_length(device.id)
+        queue_length = get_queue_length(device.android_id)
 
         device_list.append({
             "device_id": device.id,

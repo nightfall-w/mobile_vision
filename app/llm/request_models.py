@@ -24,3 +24,11 @@ class UpdateCredentialRequest(BaseModel):
     base_url: Optional[str] = None
     api_protocol: Optional[str] = None
     is_active: Optional[bool] = None
+
+
+class TestCredentialRequest(BaseModel):
+    """测试凭证连接请求"""
+    model: str
+    api_key: str
+    base_url: str
+    api_protocol: str

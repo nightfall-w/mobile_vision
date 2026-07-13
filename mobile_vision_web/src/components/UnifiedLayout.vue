@@ -16,9 +16,16 @@
               :collapse-transition="false"
             >
             <template v-if="isInWorkspace">
-              <el-menu-item :index="'/workspace/' + workspaceId">
+              <el-menu-item index="/home">
                 <el-icon class="text-lg">
                   <House/>
+                </el-icon>
+                <span v-if="!isCollapse">首页</span>
+              </el-menu-item>
+
+              <el-menu-item :index="'/workspace/' + workspaceId">
+                <el-icon class="text-lg">
+                  <Compass/>
                 </el-icon>
                 <span v-if="!isCollapse">概览</span>
               </el-menu-item>
@@ -68,11 +75,7 @@
                 </el-menu-item>
                 <el-menu-item index="/yolo/training">
                   <el-icon class="text-lg"><TrendCharts/></el-icon>
-                  <span>训练任务</span>
-                </el-menu-item>
-                <el-menu-item index="/yolo/models">
-                  <el-icon class="text-lg"><Cpu/></el-icon>
-                  <span>模型管理</span>
+                  <span>训练中心</span>
                 </el-menu-item>
               </el-sub-menu>
 
@@ -90,13 +93,7 @@
                 <span v-if="!isCollapse">LLM凭证</span>
               </el-menu-item>
 
-              <el-menu-item index="/system-config" v-if="isAdmin">
-                <el-icon class="text-lg">
-                  <Setting/>
-                </el-icon>
-                <span v-if="!isCollapse">系统设置</span>
-              </el-menu-item>
-            </template>
+              </template>
           </el-menu>
           </div>
 
@@ -124,7 +121,7 @@ import {useRouter, useRoute} from 'vue-router'
 import {
   House,
   Collection,
-  Setting,
+  Compass,
   Expand,
   Fold,
   Monitor,
@@ -142,19 +139,6 @@ const route = useRoute()
 const router = useRouter()
 const workspaceId = computed(() => {
   return route.params.id
-})
-
-const isAdmin = computed(() => {
-  try {
-    const currentUserJson = localStorage.getItem('currentUser')
-    if (currentUserJson) {
-      const currentUser = JSON.parse(currentUserJson)
-      return currentUser.id === 0
-    }
-    return false
-  } catch (e) {
-    return false
-  }
 })
 
 const isInWorkspace = computed(() => {

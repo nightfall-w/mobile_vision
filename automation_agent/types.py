@@ -75,6 +75,7 @@ class PageContext(BaseModel):
     texts: List[Dict[str, Any]]
     structured_elements: List[Dict[str, Any]] = []
     screenshot_base64: str = ""
+    source: str = "visual"  # "visual" | "dom"
 
 
 class ExecutionResult(BaseModel):

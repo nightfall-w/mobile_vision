@@ -2,22 +2,27 @@
   <div class="testcase-management">
     <!-- 固定区域：标题卡片和筛选区域 -->
     <div class="sticky-header">
-      <div class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">用例管理</h1>
-          <p class="page-subtitle">管理工作空间下的自然语言用例</p>
-        </div>
-        <div class="header-right">
-          <div class="header-info">
-            <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
-            <el-tag
-              v-if="managers.length > 0"
-              size="small"
-              class="manager-tag"
-            >
-              <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ managerNames }}
-            </el-tag>
+      <div class="tcm-header-card">
+        <div class="tcm-header-inner">
+          <div class="tcm-title-group">
+            <div class="tcm-icon-wrap"><el-icon :size="18"><Document /></el-icon></div>
+            <div>
+              <h1 class="tcm-title">用例管理</h1>
+              <p class="tcm-subtitle">管理测试用例</p>
+            </div>
+          </div>
+          <div class="tcm-header-actions">
+            <div class="header-info">
+              <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
+              <el-tag
+                v-if="managers.length > 0"
+                size="small"
+                class="manager-tag"
+              >
+                <el-icon class="mr-1" :size="12"><User/></el-icon>
+                管理员：{{ managerNames }}
+              </el-tag>
+            </div>
           </div>
         </div>
       </div>
@@ -78,10 +83,10 @@
         element-loading-text="加载中..."
         style="width: 100%"
         :cell-style="{ textAlign: 'center' }"
-        :header-cell-style="{ textAlign: 'center', backgroundColor: '#f5f7fa', color: '#606266' }"
-        border
+        :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
+        stripe
         empty-text="暂无用例数据"
-        :height="tableHeight"
+        height="100%"
       >
         <el-table-column label="用例ID" width="100">
           <template #default="{ row }">
@@ -133,19 +138,20 @@
         </el-table-column>
       </el-table>
     </div>
+    </div>
 
-    <div class="table-footer">
-        <el-pagination
-          :current-page="pagination.page_num"
-          :page-size="pagination.page_size"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-          background
-        />
-      </div>
+    <div class="tcm-page-footer">
+      <el-pagination
+        :current-page="pagination.page_num"
+        :page-size="pagination.page_size"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+        background
+        small
+      />
     </div>
 
     <el-dialog
@@ -305,10 +311,6 @@ export default {
     const managers = ref([])
     const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 
-    const tableHeight = computed(() => {
-      return window.innerHeight - 320
-    })
-
     const fetchWorkspaceDetail = async () => {
       try {
         const res = await getWorkspaceDetail({ workspace_id: parseInt(workspaceId) })
@@ -452,7 +454,6 @@ export default {
       managers,
       managerNames,
       viewCase,
-      tableHeight,
       fetchCases,
       handlePageChange,
       handleSizeChange,
@@ -494,44 +495,16 @@ export default {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2d3d;
-}
-
-.page-subtitle {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #646a73;
-}
-
-.header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
+.tcm-header-card { background: #fff; border-radius: 12px; }
+.tcm-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.tcm-title-group { display: flex; align-items: center; gap: 12px; }
+.tcm-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.tcm-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.tcm-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.tcm-header-actions { display: flex; gap: 8px; }
 
 .header-info {
   display: flex;
@@ -561,11 +534,11 @@ export default {
 .search-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
-  padding: 1rem;
-  background: #ffffff;
+  padding: 10px 16px;
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .search-input {
@@ -589,86 +562,43 @@ export default {
 }
 
 .table-container {
-  background: #ffffff;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  padding: 1rem;
-}
-
-:deep(.el-table .el-table__cell) {
-  padding: 10px 0;
+  overflow: hidden;
 }
 
 .action-group {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: nowrap;
 }
 
 .action-btn {
-  display: inline-block;
-  padding: 2px 7px;
+  border: none;
+  border-radius: 6px;
   font-size: 12px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  line-height: 1.6;
-  user-select: none;
+  transition: all 0.12s ease;
+  font-weight: 500;
 }
 
-.action-edit {
-  color: #3182ce;
-  background: #ebf8ff;
-  border: 1px solid #bee3f8;
-}
-
-.action-edit:hover {
-  background: #d4edfa;
-  border-color: #90cdf4;
-}
-
-.action-view {
-  color: #718096;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.action-view:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-}
-
-.action-delete {
-  color: #e53e3e;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-}
-
-.action-delete:hover {
-  background: #ffebeb;
-  border-color: #feb2b2;
-}
+.action-view { background: #eef2ff; color: #5b6ef7; }
+.action-view:hover { background: #dde3ff; }
+.action-edit { background: #eef2ff; color: #5b6ef7; }
+.action-edit:hover { background: #dde3ff; }
+.action-delete { background: #fef2f2; color: #dc2626; }
+.action-delete:hover { background: #fee2e2; }
 
 .id-text {
   font-weight: 600;
   color: #409eff;
 }
 
-.table-footer {
-  margin-top: 10px;
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 20px;
-  background-color: #ffffff;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
+.tcm-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 
 /* ===== 用例详情弹窗 ===== */
 .tc-detail-dialog :deep(.el-dialog__header) {

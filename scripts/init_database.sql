@@ -184,6 +184,7 @@ CREATE TABLE `test_task` (
   `aborted_jobs`   INT           DEFAULT 0  COMMENT '中止Job数',
   `running_jobs`   INT           DEFAULT 0  COMMENT '运行中Job数',
   `total_duration` INT           DEFAULT 0  COMMENT '总耗时(秒)',
+  `start_time`     DATETIME      NULL       COMMENT '任务开始时间',
   `is_deleted`     TINYINT(1)    DEFAULT 0,
   `create_time`    DATETIME      DEFAULT CURRENT_TIMESTAMP,
   `end_time`       DATETIME      NULL,
@@ -285,6 +286,7 @@ CREATE TABLE `yolo_datasets` (
   `image_count`     INT          DEFAULT 0  COMMENT '图片数量',
   `label_count`     INT          DEFAULT 0  COMMENT '标注数量',
   `data_yaml_path`  VARCHAR(512) NULL     COMMENT '生成的data.yaml路径',
+  `create_user`     VARCHAR(100) NULL     COMMENT '创建人用户名',
   `created_at`      DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`      DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted`      INT          DEFAULT 0  COMMENT '是否删除(0=未删除, 1=已删除)',
@@ -308,6 +310,7 @@ CREATE TABLE `yolo_tasks` (
   `error_message`     TEXT          NULL     COMMENT '错误信息',
   `result_model_path` VARCHAR(512)  NULL     COMMENT '训练结果模型路径',
   `train_dir`         VARCHAR(512)  NULL     COMMENT '训练目录路径',
+  `create_user`       VARCHAR(100)  NULL     COMMENT '创建人用户名',
   `created_at`        DATETIME      DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at`        DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   `is_deleted`        INT           DEFAULT 0  COMMENT '是否删除(0=未删除, 1=已删除)',
@@ -362,6 +365,7 @@ CREATE TABLE `task_execution_log` (
   `level`     VARCHAR(20)  NOT NULL COMMENT '日志级别',
   `message`   TEXT         NOT NULL COMMENT '日志内容',
   `timestamp` DATETIME     NOT NULL COMMENT '日志时间',
+  `page_structure` JSON  NULL       COMMENT '页面结构化信息',
   PRIMARY KEY (`id`),
   KEY `idx_task_id` (`task_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务执行日志表';

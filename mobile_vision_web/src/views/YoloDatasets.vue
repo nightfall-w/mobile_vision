@@ -2,81 +2,61 @@
   <div class="yolo-datasets">
     <!-- 固定区域：标题和筛选 -->
     <div class="sticky-header">
-      <!-- 页面标题卡片 -->
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden bg-white">
-        <div class="relative overflow-hidden">
-          <div
-            class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100 to-purple-100 rounded-full -mr-24 -mt-24 opacity-70"></div>
-          <div
-            class="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full -ml-18 -mb-18 opacity-70"></div>
-
-          <div
-            class="relative flex flex-col md:flex-row justify-between items-start md:items-center p-4 z-10">
-            <div class="page-header mb-3 md:mb-0">
-              <h1 class="text-xl font-bold text-gray-800 mt-0 mb-1">数据集管理</h1>
-              <p class="text-sm text-gray-600 m-0">管理 YOLO 目标检测训练数据集</p>
+      <!-- Apple-style header card -->
+      <div class="yd-header-card">
+        <div class="yd-header-inner">
+          <div class="yd-title-group">
+            <div class="yd-icon-wrap"><el-icon :size="18"><Collection /></el-icon></div>
+            <div>
+              <h1 class="yd-title">数据集管理</h1>
+              <p class="yd-subtitle">管理 YOLO 训练数据集</p>
             </div>
-
-            <div class="flex flex-wrap gap-2 mt-1 md:mt-0">
-              <el-button type="primary" @click="showCreateDatasetDialog = true">
-                <el-icon>
-                  <Plus/>
-                </el-icon>
-                创建数据集
-              </el-button>
-              <el-button type="success" @click="loadDatasets">
-                <el-icon>
-                  <Refresh/>
-                </el-icon>
-                刷新
-              </el-button>
-            </div>
+          </div>
+          <div class="yd-header-actions">
+            <button class="yd-btn yd-btn-primary" @click="showCreateDatasetDialog = true">
+              <el-icon :size="14"><Plus/></el-icon> 创建数据集
+            </button>
+            <button class="yd-btn yd-btn-ghost" @click="loadDatasets()">
+              <el-icon :size="14"><Refresh/></el-icon> 刷新
+            </button>
           </div>
         </div>
-      </el-card>
+      </div>
 
-      <!-- 筛选区域卡片 -->
-      <el-card class="filter-card rounded-xl shadow-md border-0 bg-white">
-        <div class="flex flex-wrap items-center gap-4 p-4">
-          <div class="flex items-center gap-2">
-            <label class="text-sm text-gray-600">状态:</label>
-            <el-select v-model="filterStatus" placeholder="全部" class="w-36" size="default"
-                       @change="handleSearch">
-              <el-option label="全部" :value="''"/>
-              <el-option label="正常" :value="'active'"/>
-              <el-option label="已禁用" :value="'disabled'"/>
-            </el-select>
-          </div>
-          <el-input v-model="searchKeyword" placeholder="搜索数据集名称" class="w-44" size="default"
+      <!-- 搜索区域 -->
+      <div class="filter-card">
+        <div class="filter-inner">
+          <el-input v-model="searchKeyword" placeholder="搜索数据集名称" class="filter-input"
                     @keyup.enter="handleSearch">
             <template #prefix>
-              <el-icon :size="14">
+              <el-icon>
                 <Search/>
               </el-icon>
             </template>
           </el-input>
-          <el-button type="primary" @click="handleSearch">
-            <el-icon :size="14">
-              <Search/>
-            </el-icon>
-            查询
-          </el-button>
+          <button class="filter-btn" @click="handleSearch">
+            <el-icon :size="13"><Search/></el-icon> 查询
+          </button>
         </div>
-      </el-card>
+      </div>
     </div>
 
     <!-- 滚动内容区域 -->
     <div class="yd-scroll">
       <div v-if="datasets.length === 0" class="yd-empty">
-        <div class="yd-empty-icon">
-          <el-icon :size="40">
-            <PictureRounded/>
-          </el-icon>
+        <div class="yd-empty-icon-wrap">
+          <div class="yd-empty-icon-ring">
+            <div class="yd-empty-icon-inner">
+              <el-icon :size="28">
+                <PictureRounded/>
+              </el-icon>
+            </div>
+          </div>
         </div>
         <h3 class="yd-empty-title">暂无数据集</h3>
         <p class="yd-empty-desc">创建一个数据集开始训练吧</p>
-        <button class="yd-btn yd-btn-primary" @click="showCreateDatasetDialog = true">
-          <el-icon :size="14">
+        <button class="yd-empty-btn" @click="showCreateDatasetDialog = true">
+          <el-icon :size="15">
             <Plus/>
           </el-icon>
           <span>创建数据集</span>
@@ -88,97 +68,55 @@
           v-for="(dataset, index) in datasets"
           :key="dataset.id"
           class="yd-card"
-          :style="{ borderTopColor: getCardColor(index) }"
+          :style="{ borderLeftColor: getCardColor(index) }"
         >
-          <!-- 操作按钮 -->
-          <div class="yd-card-actions">
-            <button class="yd-icon-btn" @click.stop="openEditDatasetDialog(dataset)" title="编辑">
-              <el-icon :size="13">
-                <Edit/>
-              </el-icon>
-            </button>
-            <button class="yd-icon-btn yd-icon-btn--danger" @click.stop="deleteDataset(dataset.id)"
-                    title="删除">
-              <el-icon :size="13">
-                <Delete/>
-              </el-icon>
-            </button>
+          <!-- 头部：名称 + ID + 操作 -->
+          <div class="yd-card-top">
+            <div class="yd-card-title-row">
+              <h3 class="yd-card-name">{{ dataset.name }}</h3>
+              <span class="yd-card-id">#{{ dataset.id }}</span>
+            </div>
+            <div class="yd-card-actions">
+              <button class="yd-icon-btn" @click.stop="openEditDatasetDialog(dataset)" title="编辑">
+                <el-icon :size="13"><Edit/></el-icon>
+              </button>
+              <button v-if="isCreator(dataset)" class="yd-icon-btn yd-icon-btn--danger" @click.stop="deleteDataset(dataset.id)" title="删除">
+                <el-icon :size="13"><Delete/></el-icon>
+              </button>
+            </div>
           </div>
 
-          <!-- 标题行 -->
-          <div class="yd-card-header">
-            <span class="yd-card-dot" :style="{ backgroundColor: getCardColor(index) }"></span>
-            <h3 class="yd-card-name">{{ dataset.name }}</h3>
-            <span class="yd-card-id">#{{ dataset.id }}</span>
+          <!-- 创建人 -->
+          <div class="yd-card-meta" v-if="dataset.create_user_nickname">
+            <el-icon :size="12"><User /></el-icon>
+            <span>{{ dataset.create_user_nickname }}</span>
           </div>
 
-          <!-- 描述（始终占位） -->
-          <div class="yd-card-desc-wrap">
-            <p v-if="dataset.description" class="yd-card-desc">{{ dataset.description }}</p>
-            <p v-else class="yd-card-desc yd-card-desc--empty">暂无描述</p>
+          <!-- 描述（始终占位，保证卡片等⾼） -->
+          <p class="yd-card-desc" :class="{ 'yd-card-desc--empty': !dataset.description }">{{ dataset.description || '暂无描述' }}</p>
+
+          <!-- 统计 + 类别 -->
+          <div class="yd-card-info">
+            <div class="yd-card-stats">
+              <span class="yd-stat"><el-icon :size="13"><PictureRounded/></el-icon>{{ dataset.image_count }}张</span>
+              <span class="yd-stat"><el-icon :size="13"><Collection/></el-icon>{{ dataset.label_count }}个</span>
+              <span class="yd-stat"><el-icon :size="13"><Folder/></el-icon>{{ dataset.class_count }}类</span>
+            </div>
           </div>
 
-          <!-- 统计 -->
-          <div class="yd-card-stats">
-            <span class="yd-stat">
-              <el-icon :size="12"><PictureRounded/></el-icon>
-              {{ dataset.image_count }} 张
-            </span>
-            <span class="yd-stat">
-              <el-icon :size="12"><Collection/></el-icon>
-              {{ dataset.label_count }} 个标注
-            </span>
-            <span class="yd-stat">
-              <el-icon :size="12"><Folder/></el-icon>
-              {{ dataset.class_count }} 类
-            </span>
-          </div>
-
-          <!-- 类别标签（始终占位两行） -->
-          <div class="yd-card-tags">
-            <template v-if="dataset.classes && dataset.classes.length > 0">
-              <span
-                v-for="cls in dataset.classes.slice(0, 5)"
-                :key="typeof cls === 'string' ? cls : cls.english"
-                class="yd-tag"
-              >
-                {{ typeof cls === 'string' ? cls : cls.english }}
-              </span>
-              <span v-if="dataset.classes.length > 5" class="yd-tag-more">
-                +{{ dataset.classes.length - 5 }}
-              </span>
-            </template>
-          </div>
-
-          <!-- 操作按钮组 -->
+          <!-- 底部操作 -->
           <div class="yd-card-footer">
-            <button class="yd-action-btn yd-action-btn--primary"
-                    @click="goToAnnotation(dataset.id)">
-              <el-icon :size="12">
-                <Edit/>
-              </el-icon>
-              标注
+            <button class="yd-action-btn yd-action-btn--primary" @click="goToAnnotation(dataset.id)">
+              <el-icon :size="13"><Edit/></el-icon> 标注
             </button>
-            <button class="yd-action-btn yd-action-btn--info"
-                    @click="openEditClassesDialog(dataset)">
-              <el-icon :size="12">
-                <Folder/>
-              </el-icon>
-              类别
+            <button class="yd-action-btn yd-action-btn--info" @click="openEditClassesDialog(dataset)">
+              <el-icon :size="13"><Folder/></el-icon> 类别
             </button>
-            <button class="yd-action-btn yd-action-btn--accent"
-                    @click="openUploadImagesDialog(dataset.id)">
-              <el-icon :size="12">
-                <UploadIcon/>
-              </el-icon>
-              上传
+            <button class="yd-action-btn yd-action-btn--accent" @click="openUploadImagesDialog(dataset.id)">
+              <el-icon :size="13"><UploadIcon/></el-icon> 上传
             </button>
-            <button class="yd-action-btn yd-action-btn--warning"
-                    @click="openStartTrainDialog(dataset)">
-              <el-icon :size="12">
-                <VideoPlay/>
-              </el-icon>
-              训练
+            <button class="yd-action-btn yd-action-btn--warning" @click="openStartTrainDialog(dataset)">
+              <el-icon :size="13"><VideoPlay/></el-icon> 训练
             </button>
           </div>
         </div>
@@ -460,9 +398,9 @@
                      class="border-gray-200 text-gray-700 hover:bg-gray-100 text-sm py-1.5 px-4 rounded-lg">
             取消
           </el-button>
-          <el-button type="danger" @click="confirmDeleteDataset"
+          <el-button type="danger" @click="confirmDeleteDataset" :disabled="deleteCountdown > 0"
                      class="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 border-none text-sm py-1.5 px-4 rounded-lg">
-            确定删除
+            {{ deleteCountdown > 0 ? '确认删除 (' + deleteCountdown + 's)' : '确定删除' }}
           </el-button>
         </div>
       </template>
@@ -471,7 +409,7 @@
 </template>
 
 <script setup>
-import {ref, onMounted, computed} from 'vue'
+import {ref, onMounted, computed, watch} from 'vue'
 import {useRouter} from 'vue-router'
 import {
   Plus,
@@ -488,7 +426,8 @@ import {
   Warning,
   Search,
 	  Setting,
-	  Operation
+	  Operation,
+  User
 } from '@element-plus/icons-vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {
@@ -505,6 +444,11 @@ import {
 const router = useRouter()
 
 const datasets = ref([])
+const currentUsername = ref('')
+
+const isCreator = (dataset) => {
+  return dataset.create_user && currentUsername.value && dataset.create_user === currentUsername.value
+}
 const showCreateDatasetDialog = ref(false)
 const showEditDatasetDialog = ref(false)
 const showUploadDialog = ref(false)
@@ -514,6 +458,8 @@ const showDeleteDatasetDialog = ref(false)
 const editingClasses = ref([])
 const currentEditDatasetId = ref(null)
 const deleteDatasetInfo = ref({id: null, name: ''})
+const deleteCountdown = ref(0)
+let deleteTimer = null
 const editingDataset = ref({id: null, name: '', description: ''})
 const editingDatasetLoading = ref(false)
 
@@ -557,9 +503,7 @@ const uploadFiles = ref([])
 const availableModels = ref([])
 const uploading = ref(false)
 const selectedSplit = ref('')
-const filterStatus = ref('')
 const searchKeyword = ref('')
-const allDatasets = ref([])
 
 const baseModels = computed(() => {
   return availableModels.value.filter(m => m.type === 'base')
@@ -569,12 +513,15 @@ const trainedModels = computed(() => {
   return availableModels.value.filter(m => m.type === 'trained')
 })
 
-const loadDatasets = async () => {
+const loadDatasets = async (keyword) => {
   try {
-    const resp = await getYoloDatasets()
+    const params = {}
+    if (keyword) {
+      params.keyword = keyword
+    }
+    const resp = await getYoloDatasets(params)
     if (resp.code === 0) {
-      allDatasets.value = resp.data || []
-      datasets.value = allDatasets.value
+      datasets.value = resp.data || []
     }
   } catch (error) {
     console.error('加载数据集失败:', error)
@@ -582,15 +529,8 @@ const loadDatasets = async () => {
 }
 
 const handleSearch = () => {
-  let filtered = allDatasets.value
-  const keyword = searchKeyword.value?.trim().toLowerCase()
-  if (keyword) {
-    filtered = filtered.filter(d => d.name?.toLowerCase().includes(keyword))
-  }
-  if (filterStatus.value) {
-    filtered = filtered.filter(d => d.status === filterStatus.value)
-  }
-  datasets.value = filtered
+  const keyword = searchKeyword.value?.trim()
+  loadDatasets(keyword)
 }
 
 const loadAvailableModels = async () => {
@@ -694,9 +634,20 @@ const deleteDataset = (id) => {
     name: dataset ? dataset.name : '未知数据集'
   }
   showDeleteDatasetDialog.value = true
+  deleteCountdown.value = 5
+  clearInterval(deleteTimer)
+  deleteTimer = setInterval(() => {
+    deleteCountdown.value--
+    if (deleteCountdown.value <= 0) {
+      clearInterval(deleteTimer)
+      deleteTimer = null
+    }
+  }, 1000)
 }
 
 const confirmDeleteDataset = async () => {
+  clearInterval(deleteTimer)
+  deleteTimer = null
   try {
     const resp = await deleteYoloDataset(deleteDatasetInfo.value.id)
     if (resp.code === 0) {
@@ -861,7 +812,20 @@ const saveClasses = async () => {
   }
 }
 
+const stopCountdown = () => {
+  clearInterval(deleteTimer)
+  deleteTimer = null
+  deleteCountdown.value = 0
+}
+
+
+watch(showDeleteDatasetDialog, (val) => {
+  if (!val) stopCountdown()
+})
+
 onMounted(() => {
+  const user = JSON.parse(localStorage.getItem('currentUser') || '{}')
+  currentUsername.value = user.username || ''
   loadDatasets()
 })
 </script>
@@ -888,16 +852,77 @@ onMounted(() => {
   padding-bottom: 10px;
 }
 
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+.yd-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+.yd-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.yd-title-group { display: flex; align-items: center; gap: 12px; }
+.yd-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.yd-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.yd-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.yd-header-actions { display: flex; gap: 8px; }
+
+.yd-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 7px 14px;
+  transition: all 0.15s ease;
 }
 
-.header-card :deep(.el-card__body) {
-  padding: 0;
+.yd-btn-primary {
+  background: #5b6ef7;
+  color: #fff;
+  border: none;
 }
+
+.yd-btn-primary:hover { background: #4c5fd8; }
+
+.yd-btn-ghost {
+  background: transparent;
+  color: #505050;
+  border: 1px solid #d1d5db;
+}
+
+.yd-btn-ghost:hover { background: #f0f0f0; }
 
 .filter-card {
-  background: white;
+  background: #fff;
+  border: 1px solid #e8e8e8;
+  border-radius: 12px;
+}
+
+.filter-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  width: 200px;
+}
+
+.filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f5f7fa;
+  border: 1px solid #e4e8ec;
+  color: #646a73;
+  border-radius: 6px;
+  font-size: 13px;
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-weight: 500;
+}
+
+.filter-btn:hover {
+  background: #e8eef3;
 }
 
 /* ===== Scroll Content ===== */
@@ -907,39 +932,106 @@ onMounted(() => {
   padding: 10px 0 20px;
 }
 
-/* ===== Empty State ===== */
+/* ===== Empty State — SwiftUI Style ===== */
 .yd-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
+  padding: 80px 20px 60px;
   text-align: center;
+  min-height: 400px;
 }
 
-.yd-empty-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: #f3f4f6;
+.yd-empty-icon-wrap {
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.yd-empty-icon-ring {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(91, 110, 247, 0.08) 0%, rgba(91, 110, 247, 0.03) 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
-  margin-bottom: 16px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1.5px solid rgba(91, 110, 247, 0.12);
+  transition: all 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.yd-empty-icon-inner {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b6ef7 0%, #7c5ce7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(91, 110, 247, 0.3);
+  transition: transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+.yd-empty-icon-wrap:hover .yd-empty-icon-ring {
+  border-color: rgba(91, 110, 247, 0.2);
+  box-shadow: 0 0 24px rgba(91, 110, 247, 0.08);
+}
+
+.yd-empty-icon-wrap:hover .yd-empty-icon-inner {
+  transform: scale(1.05);
 }
 
 .yd-empty-title {
-  margin: 0 0 6px;
-  font-size: 15px;
-  font-weight: 600;
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: #1d1d1f;
+  background: linear-gradient(135deg, #1d1d1f 0%, #4a4a4e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .yd-empty-desc {
-  margin: 0 0 20px;
-  font-size: 13px;
+  margin: 0 0 28px;
+  font-size: 15px;
   color: #86868b;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.yd-empty-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 28px;
+  background: linear-gradient(135deg, #5b6ef7 0%, #7c5ce7 100%);
+  border: none;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(91, 110, 247, 0.35);
+  transition: all 0.25s cubic-bezier(0.25, 0.1, 0.25, 1);
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+}
+
+.yd-empty-btn:hover {
+  background: linear-gradient(135deg, #4c5fd8 0%, #6b4cd6 100%);
+  box-shadow: 0 6px 24px rgba(91, 110, 247, 0.45);
+  transform: translateY(-1px);
+}
+
+.yd-empty-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(91, 110, 247, 0.3);
 }
 
 /* ===== Card Grid ===== */
@@ -951,14 +1043,13 @@ onMounted(() => {
 }
 
 
-/* ===== Card ===== */
+/* ===== SwiftUI 风格卡片 ===== */
 .yd-card {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-top: 3px solid #4299e1;
+  border-left: 3px solid #4299e1;
   border-radius: 12px;
-  padding: 16px;
-  position: relative;
+  padding: 14px 16px;
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
@@ -967,18 +1058,43 @@ onMounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
 }
 
-.yd-card-actions {
-  position: absolute;
-  top: 12px;
-  right: 12px;
+.yd-card-top {
   display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
 }
 
-.yd-card:hover .yd-card-actions {
-  opacity: 1;
+.yd-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.yd-card-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d1d1f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yd-card-id {
+  font-size: 11px;
+  color: #9ca3af;
+  flex-shrink: 0;
+  font-feature-settings: "tnum";
+}
+
+.yd-card-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
 }
 
 .yd-icon-btn {
@@ -1007,49 +1123,21 @@ onMounted(() => {
   background: #fef2f2;
 }
 
-.yd-card-header {
+.yd-card-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.yd-card-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
-}
-
-.yd-card-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #1d1d1f;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.yd-card-id {
+  gap: 4px;
+  margin-bottom: 8px;
   font-size: 11px;
   color: #9ca3af;
-  flex-shrink: 0;
-  font-feature-settings: "tnum";
-}
-
-.yd-card-desc-wrap {
-  min-height: 2.6em;
-  margin-bottom: 10px;
 }
 
 .yd-card-desc {
-  margin: 0;
+  margin: 0 0 10px;
   font-size: 12.5px;
   color: #6b7280;
   line-height: 1.5;
+  min-height: 2.6em;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -1062,58 +1150,64 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.yd-card-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
 .yd-card-stats {
   display: flex;
-  gap: 16px;
-  margin-bottom: 10px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .yd-stat {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 12px;
+  gap: 3px;
+  font-size: 11px;
   color: #6b7280;
-  padding: 3px 8px;
+  padding: 2px 7px;
   background: #f9fafb;
   border-radius: 6px;
-  line-height: 1;
+  line-height: 1.3;
+  white-space: nowrap;
 }
 
 .yd-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 12px;
-  min-height: 44px;
-  align-content: flex-start;
+  gap: 3px;
+  min-width: 0;
 }
 
 .yd-tag {
   display: inline-flex;
   align-items: center;
-  padding: 2px 7px;
+  padding: 1px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: #4b5563;
   background: #f3f4f6;
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .yd-tag-more {
-  font-size: 11px;
+  font-size: 10px;
   color: #9ca3af;
   display: inline-flex;
   align-items: center;
-  padding: 2px 4px;
+  padding: 1px 4px;
 }
 
 .yd-card-footer {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  padding-top: 12px;
+  padding-top: 10px;
   border-top: 1px solid #f3f4f6;
 }
 

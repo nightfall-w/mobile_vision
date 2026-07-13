@@ -11,17 +11,13 @@ from typing import List, Dict, Optional
 
 from sqlalchemy import desc
 
-from core.config import PROJECT_ROOT
+from core.config import PROJECT_ROOT, YOLO_DATASETS_DIR, YOLO_MODELS_DIR, YOLO_OUTPUT_DIR, YOLO_TRAIN_RUNS_DIR
 from core.database import _get_db_session as get_db_session
 from utils.task_cancel import send_cancel_signal
 from app.yolo.models import YoloDataset, YoloTask, YoloModel, TaskStatus
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
-MODEL_STORAGE_ROOT = YOLO_ROOT / 'runs'
-
-os.makedirs(DATA_STORAGE_ROOT, exist_ok=True)
-os.makedirs(MODEL_STORAGE_ROOT, exist_ok=True)
+DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
+MODEL_STORAGE_ROOT = YOLO_TRAIN_RUNS_DIR
 
 
 def generate_data_yaml(dataset_id: str) -> str:
@@ -72,7 +68,7 @@ names: {class_names}
     return str(yaml_path)
 
 
-def create_dataset(name: str, description: str = "", classes: List[str] = None) -> Dict:
+def create_dataset(name: str, description: str = "", classes: List[str] = None, create_user: str = None) -> Dict:
     """创建数据集"""
     dataset_id = str(uuid.uuid4())[:8]
     dataset_dir = DATA_STORAGE_ROOT / dataset_id
@@ -89,7 +85,8 @@ def create_dataset(name: str, description: str = "", classes: List[str] = None) 
             classes=classes,
             class_count=len(classes),
             image_count=0,
-            label_count=0
+            label_count=0,
+            create_user=create_user
         )
         db.add(dataset)
 
@@ -104,15 +101,21 @@ def create_dataset(name: str, description: str = "", classes: List[str] = None) 
             'class_count': len(classes),
             'image_count': 0,
             'label_count': 0,
+            'create_user': create_user,
             'created_at': datetime.now().isoformat()
         }
 
 
-def get_datasets() -> List[Dict]:
-    """获取所有数据集"""
+def get_datasets(keyword: str = None, status: str = None) -> List[Dict]:
+    """获取数据集列表，支持按名称搜索"""
     with get_db_session() as db:
-        datasets = db.query(YoloDataset).filter(YoloDataset.is_deleted == 0).order_by(
-            desc(YoloDataset.created_at)).all()
+        query = db.query(YoloDataset).filter(YoloDataset.is_deleted == 0)
+
+        # keyword 模糊搜索名称
+        if keyword:
+            query = query.filter(YoloDataset.name.ilike(f'%{keyword}%'))
+
+        datasets = query.order_by(desc(YoloDataset.created_at)).all()
         return [_dataset_to_dict(d) for d in datasets]
 
 
@@ -125,11 +128,13 @@ def get_dataset(dataset_id: str) -> Optional[Dict]:
         return None
 
 
-def delete_dataset(dataset_id: str):
-    """删除数据集"""
+def delete_dataset(dataset_id: str, current_user: str = None):
+    """删除数据集（仅创建人可删除）"""
     with get_db_session() as db:
         dataset = db.query(YoloDataset).filter(YoloDataset.id == dataset_id).first()
         if dataset:
+            if current_user and dataset.create_user and dataset.create_user != current_user:
+                raise PermissionError(f"只有创建人({dataset.create_user})才能删除数据集")
             dataset.is_deleted = 1
 
             dataset_dir = DATA_STORAGE_ROOT / dataset_id
@@ -227,7 +232,7 @@ def update_dataset_statistics(dataset_id: str):
     update_dataset_stats(dataset_id)
 
 
-def create_task(dataset_id: str, config: Dict) -> Dict:
+def create_task(dataset_id: str, config: Dict, create_user: str = None) -> Dict:
     """创建训练任务"""
     task_id = str(uuid.uuid4())[:8]
     with get_db_session() as db:
@@ -239,7 +244,8 @@ def create_task(dataset_id: str, config: Dict) -> Dict:
             status=TaskStatus.PENDING.value,
             progress=0.0,
             current_epoch=0,
-            total_epochs=config.get('epochs', 100)
+            total_epochs=config.get('epochs', 100),
+            create_user=create_user
         )
         db.add(task)
         return {
@@ -407,8 +413,20 @@ def delete_model(model_id: str):
             model.is_deleted = 1
 
 
+def _get_user_nickname(username: str) -> str:
+    """根据用户名查询昵称"""
+    if not username:
+        return ''
+    from core.database import _get_db_session as db_session
+    from app.user.models import UserModel
+    with db_session() as db:
+        user = db.query(UserModel).filter(UserModel.username == username).first()
+        return user.nickname if user else username
+
+
 def _dataset_to_dict(dataset: YoloDataset) -> Dict:
     """数据集对象转字典"""
+    nickname = _get_user_nickname(dataset.create_user)
     return {
         'id': dataset.id,
         'name': dataset.name,
@@ -418,6 +436,8 @@ def _dataset_to_dict(dataset: YoloDataset) -> Dict:
         'image_count': dataset.image_count,
         'label_count': dataset.label_count,
         'data_yaml_path': dataset.data_yaml_path,
+        'create_user': dataset.create_user,
+        'create_user_nickname': nickname,
         'created_at': dataset.created_at.isoformat() if dataset.created_at else None,
         'updated_at': dataset.updated_at.isoformat() if dataset.updated_at else None
     }
@@ -427,6 +447,7 @@ def _task_to_dict(task: YoloTask) -> Dict:
     """任务对象转字典"""
     dataset_detail = _get_dataset_detail(task.dataset_id)
     model_name = os.path.basename(task.model_name) if task.model_name else ''
+    nickname = _get_user_nickname(task.create_user)
     return {
         'id': task.id,
         'dataset_id': task.dataset_id,
@@ -439,6 +460,8 @@ def _task_to_dict(task: YoloTask) -> Dict:
         'current_epoch': task.current_epoch,
         'total_epochs': task.total_epochs,
         'metrics': task.metrics,
+        'create_user': task.create_user,
+        'create_user_nickname': nickname,
         'start_time': task.start_time.isoformat() if task.start_time else None,
         'end_time': task.end_time.isoformat() if task.end_time else None,
         'error_message': task.error_message,

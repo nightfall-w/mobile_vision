@@ -10,7 +10,13 @@ class YOLOPredictor:
         # 优先使用数据库中的 classes 作为显示名称
         self.db_class_names = class_names_from_db or []
         if self.db_class_names:
-            self._display_names = {i: name for i, name in enumerate(self.db_class_names)}
+            # 优先取 chinese，没有则取 english，兜底转字符串
+            self._display_names = {}
+            for i, cls in enumerate(self.db_class_names):
+                if isinstance(cls, dict):
+                    self._display_names[i] = cls.get('chinese') or cls.get('english') or str(cls)
+                else:
+                    self._display_names[i] = str(cls)
         else:
             self._display_names = self.class_names
 
@@ -42,7 +48,7 @@ class YOLOPredictor:
                 x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                 conf = box.conf[0].cpu().numpy()
                 cls = int(box.cls[0].cpu().numpy())
-                class_name = self.class_names.get(cls, f'class_{cls}')
+                class_name = self._display_names.get(cls, self.class_names.get(cls, f'class_{cls}'))
 
                 x_center = ((x1 + x2) / 2) / img_width
                 y_center = ((y1 + y2) / 2) / img_height
@@ -120,11 +126,7 @@ class YOLOPredictor:
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
             conf = box.conf[0].cpu().numpy()
             cls = int(box.cls[0].cpu().numpy())
-            display_name = self._display_names.get(cls)
-            if isinstance(display_name, dict):
-                display_name = display_name.get("chinese", display_name.get("english", self.class_names[cls]))
-            else:
-                display_name = self.class_names[cls]
+            display_name = self._display_names.get(cls, self.class_names.get(cls, f'class_{cls}'))
             color = self._get_color(cls)
 
             # 绘制边框（加粗）

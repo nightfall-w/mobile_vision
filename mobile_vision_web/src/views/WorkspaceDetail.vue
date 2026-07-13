@@ -1,13 +1,16 @@
 <template>
   <div class="workspace-detail">
     <div class="sticky-header">
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden">
-        <div class="page-header-content">
-          <div class="header-left">
-            <h1 class="page-title">工作空间概览</h1>
-            <p class="page-subtitle">管理工作空间的资源和执行统计</p>
+      <div class="wd-header-card">
+        <div class="wd-header-inner">
+          <div class="wd-title-group">
+            <div class="wd-icon-wrap"><el-icon :size="18"><InfoFilled /></el-icon></div>
+            <div>
+              <h1 class="wd-title">工作空间概览</h1>
+              <p class="wd-subtitle">查看工作空间详情</p>
+            </div>
           </div>
-          <div class="header-right">
+          <div class="wd-header-actions">
             <div class="workspace-info">
               <span class="info-label">当前空间：</span>
               <span class="info-value font-medium">{{ workspaceData.name }}</span>
@@ -18,7 +21,7 @@
             </el-tag>
           </div>
         </div>
-      </el-card>
+      </div>
     </div>
 
     <div class="scroll-content">
@@ -367,7 +370,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
-import { User, List, Folder, VideoPlay, QuestionFilled, Plus, Edit, Delete, Search, CircleCheckFilled, Warning, Close, CircleCheck } from '@element-plus/icons-vue';
+import { User, List, Folder, InfoFilled, VideoPlay, QuestionFilled, Plus, Edit, Delete, Search, CircleCheckFilled, Warning, Close, CircleCheck } from '@element-plus/icons-vue';
 import * as echarts from 'echarts';
 import { getWorkspaceDetail, getWorkspaceMembers, addMemberByAdmin, updateMemberRole, removeMemberFromWorkspace, getRolesList, getUserList } from '@/network/api.js';
 
@@ -736,12 +739,15 @@ onMounted(() => {
 .scroll-content {
   flex: 1;
   overflow-y: auto;
-  padding-top: 10px;
 }
 
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-}
+.wd-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+.wd-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.wd-title-group { display: flex; align-items: center; gap: 12px; }
+.wd-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wd-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.wd-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.wd-header-actions { display: flex; gap: 8px; align-items: center; }
 
 .page-header-content {
   display: flex;

@@ -1,63 +1,55 @@
 <template>
   <div class="yolo-annotation">
-    <!-- 页面标题卡片 -->
-    <div class="annotation-header">
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden bg-white">
-        <div class="relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100 to-purple-100 rounded-full -mr-24 -mt-24 opacity-70"></div>
-          <div class="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full -ml-18 -mb-18 opacity-70"></div>
-
-          <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center p-1 z-10">
-            <div class="header-left flex items-center gap-3 mb-3 md:mb-0">
-              <el-button @click="goBack" class="back-btn">
-                <el-icon><ArrowLeft /></el-icon>
-              </el-button>
-              <div class="header-title">
-                <h1 class="text-xl font-bold text-gray-800 mb-1">标注工具</h1>
-                <p class="text-sm text-gray-600">{{ dataset?.name || '数据集标注' }}</p>
-              </div>
-            </div>
-
-            <div class="header-actions flex flex-wrap gap-2">
-              <el-select
-                v-model="selectedModelId"
-                placeholder="选择模型（自动标注用）"
-                size="default"
-                class="model-select"
-              >
-                <el-option
-                  v-for="model in availableModels"
-                  :key="model.id"
-                  :label="`${model.name} (mAP50: ${model.metrics?.map50 ? (model.metrics.map50 * 100).toFixed(1) : '-'}%)`"
-                  :value="model.id"
-                />
-              </el-select>
-              <el-button
-                  type="success"
-                  @click="autoAnnotate"
-                  :loading="autoAnnotating"
-                  :disabled="!selectedModelId || images.length === 0"
-                  class="action-btn"
-                >
-                <el-icon><Refresh /></el-icon> 自动标注
-              </el-button>
-              <el-button type="primary" @click="saveAnnotations" class="action-btn">
-                <el-icon><Document /></el-icon> 保存标注
-              </el-button>
-            </div>
+    <div class="ya-header-card">
+      <div class="ya-header-inner">
+        <div class="ya-title-group">
+          <div class="ya-icon-wrap"><el-icon :size="18"><Edit /></el-icon></div>
+          <div>
+            <h1 class="ya-title">标注工具</h1>
+            <p class="ya-subtitle">图像标注与数据集管理</p>
           </div>
         </div>
-      </el-card>
+        <div class="ya-header-actions">
+          <el-button @click="goBack" size="small">
+            <el-icon><ArrowLeft /></el-icon> 返回
+          </el-button>
+          <el-select
+            v-model="selectedModelId"
+            placeholder="选择模型（自动标注用）"
+            size="small"
+            class="ya-model-select"
+          >
+            <el-option
+              v-for="model in availableModels"
+              :key="model.id"
+              :label="`${model.name} (mAP50: ${model.metrics?.map50 ? (model.metrics.map50 * 100).toFixed(1) : '-'}%)`"
+              :value="model.id"
+            />
+          </el-select>
+          <el-button
+            @click="autoAnnotate"
+            :loading="autoAnnotating"
+            :disabled="!selectedModelId || images.length === 0"
+            size="small"
+          >
+            <el-icon><Refresh /></el-icon> 自动标注
+          </el-button>
+          <el-button type="primary" @click="saveAnnotations" size="small">
+            <el-icon><Document /></el-icon> 保存标注
+          </el-button>
+        </div>
+      </div>
     </div>
 
     <div class="annotation-container">
       <!-- 左侧边栏 -->
       <div class="sidebar-left">
-        <div class="sidebar-card">
-          <h3 class="sidebar-title">
-            <el-icon><Picture /></el-icon> 图片列表
-          </h3>
-          <div class="split-selector mb-3">
+        <div class="ya-card ya-card--blue">
+          <div class="ya-card-header">
+            <span class="ya-card-icon"><el-icon><Picture /></el-icon></span>
+            <span class="ya-card-title">图片列表</span>
+          </div>
+          <div class="split-selector">
             <el-radio-group v-model="currentSplit" size="small" @change="loadImages">
               <el-radio-button value="" label="全部">全部</el-radio-button>
               <el-radio-button value="train" label="训练集">训练集</el-radio-button>
@@ -66,32 +58,40 @@
             </el-radio-group>
           </div>
           <el-scrollbar style="flex: 1;">
-            <div
-              v-for="(img, index) in images"
-              :key="img"
-              class="image-item"
-              :class="{ active: currentImageIndex === index }"
-              @click="selectImage(index)"
-            >
-              <span>{{ img }}</span>
+            <template v-if="images.length > 0">
+              <div
+                v-for="(img, index) in images"
+                :key="img"
+                class="image-item"
+                :class="{ active: currentImageIndex === index }"
+                @click="selectImage(index)"
+              >
+                <span class="image-name">{{ img }}</span>
+              </div>
+            </template>
+            <div v-else class="ya-empty">
+              <el-icon><Picture /></el-icon>
+              <span>暂无图片</span>
             </div>
           </el-scrollbar>
         </div>
 
-        <div class="sidebar-card">
-          <h3 class="sidebar-title">
-            <el-icon><Collection /></el-icon> 类别
-          </h3>
+        <div class="ya-card ya-card--purple">
+          <div class="ya-card-header">
+            <span class="ya-card-icon"><el-icon><Collection /></el-icon></span>
+            <span class="ya-card-title">布局类别</span>
+          </div>
           <div class="class-selector">
-            <el-tag
+            <div
               v-for="(cls, index) in dataset?.classes || []"
               :key="index"
-              class="class-tag"
+              class="class-chip"
               :class="{ active: currentClassIndex === index }"
               @click="currentClassIndex = index"
             >
-              {{ cls }}
-            </el-tag>
+              <span class="class-chip-name">{{ getClassChinese(cls) }}</span>
+              <span class="class-chip-eng">{{ getClassEnglish(cls) }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -125,51 +125,74 @@
 
       <!-- 右侧边栏 -->
       <div class="sidebar-right">
-        <div class="sidebar-card">
-          <h3 class="sidebar-title">
-            <el-icon><List /></el-icon> 标注列表 ({{ annotations.length }})
-          </h3>
+        <div class="ya-card ya-card--indigo">
+          <div class="ya-card-header">
+            <span class="ya-card-icon"><el-icon><List /></el-icon></span>
+            <span class="ya-card-title">标注列表</span>
+            <span class="ya-card-badge">{{ annotations.length }}</span>
+          </div>
           <el-scrollbar height="calc(100vh - 240px)">
-            <div
-              v-for="(ann, index) in annotations"
-              :key="index"
-              class="annotation-item"
-              :class="{ selected: selectedAnnotationIndex === index }"
-              @click="selectAnnotation(index)"
-            >
-              <div class="annotation-info">
-                <span class="class-name">{{ getClassName(ann.class_id) }}</span>
-                <span class="confidence">{{ getBoxInfo(ann) }}</span>
+            <template v-if="annotations.length > 0">
+              <div
+                v-for="(ann, index) in annotations"
+                :key="index"
+                class="annotation-item"
+                :class="{ selected: selectedAnnotationIndex === index }"
+                @click="selectAnnotation(index)"
+              >
+                <div class="annotation-info">
+                  <span class="class-name">{{ getClassName(ann.class_id) }}</span>
+                  <span class="confidence">{{ getBoxInfo(ann) }}</span>
+                </div>
+                <div class="annotation-actions">
+                  <el-button type="primary" size="small" @click.stop="editAnnotationLabel(index)">
+                    <el-icon><Edit /></el-icon>
+                  </el-button>
+                  <el-button type="danger" size="small" @click.stop="deleteAnnotation(index)">
+                    <el-icon><Delete /></el-icon>
+                  </el-button>
+                </div>
               </div>
-              <div class="annotation-actions">
-                <el-button type="primary" size="small" @click.stop="editAnnotationLabel(index)">
-                  <el-icon><Edit /></el-icon>
-                </el-button>
-                <el-button type="danger" size="small" @click.stop="deleteAnnotation(index)">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </div>
+            </template>
+            <div v-else class="ya-empty">
+              <el-icon><List /></el-icon>
+              <span>暂无标注</span>
             </div>
           </el-scrollbar>
         </div>
       </div>
     </div>
 
-    <el-dialog v-model="showLabelDialog" title="选择标签" width="700px">
+    <el-dialog v-model="showLabelDialog" width="700px">
+      <template #header>
+        <div class="ya-dialog-header">
+          <div class="ya-dialog-header-icon ya-dialog-icon--purple">
+            <el-icon><Collection /></el-icon>
+          </div>
+          <div class="ya-dialog-header-text">
+            <span class="ya-dialog-title">选择标签</span>
+            <span class="ya-dialog-subtitle">为标注框选择类别</span>
+          </div>
+        </div>
+      </template>
       <div class="label-selector">
         <el-radio-group v-model="selectedClassIndex">
           <el-radio-button
+            class="ya-label-btn"
             v-for="(cls, index) in dataset?.classes || []"
             :key="index"
             :value="index"
           >
-            {{ cls }}
+            <div class="ya-label-option">
+              <span class="ya-label-name">{{ getClassChinese(cls) }}</span>
+              <span class="ya-label-eng">{{ getClassEnglish(cls) }}</span>
+            </div>
           </el-radio-button>
         </el-radio-group>
       </div>
       <template #footer>
-        <el-button @click="cancelLabelSelection">取消</el-button>
-        <el-button type="primary" @click="confirmLabelSelection">确定</el-button>
+        <el-button class="ya-btn-cancel" @click="cancelLabelSelection">取消</el-button>
+        <el-button class="ya-btn-primary" type="primary" @click="confirmLabelSelection">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -419,6 +442,16 @@ const getClassName = (classId) => {
     return cls.chinese
   }
   return String(cls) || `class_${classId}`
+}
+
+const getClassChinese = (cls) => {
+  if (typeof cls === 'object' && cls.chinese) return cls.chinese
+  return String(cls)
+}
+
+const getClassEnglish = (cls) => {
+  if (typeof cls === 'object' && cls.english) return cls.english
+  return ''
 }
 
 const getBoxInfo = (ann) => {
@@ -736,35 +769,51 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 8px;
+.ya-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; flex-shrink: 0; }
+.ya-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.ya-title-group { display: flex; align-items: center; gap: 12px; }
+.ya-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ya-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.ya-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.ya-header-actions { display: flex; gap: 8px; align-items: center; }
+.ya-model-select { width: 200px; }
+
+.header-content {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
 }
 
-.header-card :deep(.el-card__body) {
-  padding: 8px 12px;
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .back-btn {
   width: 32px;
   height: 32px;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .header-title h1 {
   margin: 0;
   font-size: 16px;
+  font-weight: 700;
+  color: #1f2937;
 }
 
 .header-title p {
-  margin: 0;
-  font-size: 11px;
+  margin: 3px 0 0 0;
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .header-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 
 .model-select {
@@ -772,7 +821,7 @@ onMounted(async () => {
 }
 
 .action-btn {
-  border-radius: 6px;
+  border-radius: 8px;
   font-size: 12px;
 }
 
@@ -805,34 +854,102 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-.sidebar-card {
-  background: white;
-  border-radius: 10px;
-  padding: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+/* ===== 卡片基础样式 ===== */
+.ya-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+  transition: border-color 0.15s ease;
 }
 
-.sidebar-title {
-  margin: 0 0 10px 0;
+.ya-card--blue {
+  border-left: 3px solid #4b8af4;
+}
+
+.ya-card--purple {
+  border-left: 3px solid #7c5ce7;
+}
+
+.ya-card--indigo {
+  border-left: 3px solid #5b6ef7;
+}
+
+.ya-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #f3f4f6;
+  flex-shrink: 0;
+}
+
+.ya-card--blue .ya-card-header {
+  background: #f5f9fd;
+}
+
+.ya-card--purple .ya-card-header {
+  background: #f8f5fd;
+}
+
+.ya-card--indigo .ya-card-header {
+  background: #f5f6fe;
+}
+
+.ya-card-icon {
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.ya-card--blue .ya-card-icon {
+  background: #e8f0fe;
+  color: #4b8af4;
+}
+
+.ya-card--purple .ya-card-icon {
+  background: #f0e8fe;
+  color: #7c5ce7;
+}
+
+.ya-card--indigo .ya-card-icon {
+  background: #eef2ff;
+  color: #5b6ef7;
+}
+
+.ya-card-title {
   font-size: 13px;
   font-weight: 600;
   color: #374151;
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
-.sidebar-title .el-icon {
-  font-size: 16px;
-  color: #409eff;
+.ya-card-badge {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  background: #f3f4f6;
+  padding: 1px 9px;
+  border-radius: 10px;
+  line-height: 1.6;
+}
+
+.ya-card-body {
+  padding: 12px 14px;
+  flex: 1;
+  overflow: hidden;
 }
 
 .split-selector {
-  margin-bottom: 12px;
+  padding: 8px 14px 0;
 }
 
 .split-selector :deep(.el-radio-button__inner) {
@@ -856,7 +973,7 @@ onMounted(async () => {
   gap: 8px;
   overflow-y: auto;
   flex: 1;
-  padding-right: 5px;
+  padding: 12px 14px;
 }
 
 .image-item {
@@ -874,11 +991,11 @@ onMounted(async () => {
   transition: all 0.2s;
 }
 
-.image-item span {
+.image-name {
   flex: 1;
-  word-break: break-all;
-  overflow-wrap: break-word;
-  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .image-item:hover {
@@ -887,29 +1004,75 @@ onMounted(async () => {
 }
 
 .image-item.active {
-  background: linear-gradient(135deg, #409eff 0%, #3a8ee6 100%);
-  color: white;
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  background: #f0f4ff;
+  border-color: #4b8af4;
+  border-left: 3px solid #4b8af4;
+  margin-left: -3px;
+  color: #1f2937;
 }
 
-.class-tag {
+.ya-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  color: #d1d5db;
+  font-size: 13px;
+}
+
+.ya-empty .el-icon {
+  font-size: 28px;
+}
+
+.class-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 8px;
   cursor: pointer;
-  padding: 8px 14px;
-  flex-shrink: 0;
-  border-radius: 6px;
-  transition: all 0.2s;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  transition: all 0.15s ease;
+  flex: 1 0 calc(50% - 4px);
+  min-width: 0;
 }
 
-.class-tag:hover {
-  transform: translateY(-1px);
+.class-chip:hover {
+  border-color: #7c5ce7;
+  background: #f8f5fd;
 }
 
-.class-tag.active {
-  background: linear-gradient(135deg, #67c23a 0%, #5daf34 100%);
-  color: white;
-  border-color: #67c23a;
-  box-shadow: 0 2px 6px rgba(103, 194, 58, 0.3);
+.class-chip.active {
+  border-color: #7c5ce7;
+  background: #f0e8fe;
+  box-shadow: 0 1px 4px rgba(124, 92, 231, 0.15);
+}
+
+.class-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  line-height: 1.3;
+}
+
+.class-chip.active .class-chip-name {
+  color: #7c5ce7;
+}
+
+.class-chip-eng {
+  font-size: 11px;
+  color: #9ca3af;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.class-chip.active .class-chip-eng {
+  color: #a78bfa;
 }
 
 .canvas-area {
@@ -925,10 +1088,10 @@ onMounted(async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  background: #353540;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: inset 0 1px 6px rgba(0, 0, 0, 0.2);
 }
 
 .canvas-wrapper canvas {
@@ -949,6 +1112,12 @@ onMounted(async () => {
 .control-btn {
   border-radius: 8px;
   min-width: 100px;
+  border: 1px solid #e5e7eb;
+}
+
+.control-btn:hover {
+  border-color: #5b6ef7;
+  color: #5b6ef7;
 }
 
 .image-counter {
@@ -958,14 +1127,14 @@ onMounted(async () => {
   font-size: 14px;
   color: #6b7280;
   font-weight: 500;
-  background: white;
+  background: #f9fafb;
   padding: 8px 16px;
   border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid #e5e7eb;
 }
 
 .image-counter .current {
-  color: #409eff;
+  color: #5b6ef7;
   font-weight: 700;
   font-size: 16px;
 }
@@ -998,9 +1167,10 @@ onMounted(async () => {
 }
 
 .annotation-item.selected {
-  background: linear-gradient(135deg, #ecf5ff 0%, #e6f0fa 100%);
-  border-color: #409eff;
-  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.2);
+  background: #eef2ff;
+  border-color: #5b6ef7;
+  border-left: 3px solid #5b6ef7;
+  padding-left: 9px;
 }
 
 .annotation-info {
@@ -1027,14 +1197,129 @@ onMounted(async () => {
 }
 
 .annotation-actions .el-button {
-  border-radius: 6px;
+  border-radius: 8px;
+}
+
+/* ===== 滚动条 ===== */
+.ya-card :deep(.el-scrollbar__bar) {
+  opacity: 0.6;
+}
+
+.ya-card :deep(.el-scrollbar__thumb) {
+  background: #d1d5db;
+  border-radius: 4px;
+}
+
+/* ===== SwiftUI 风格选择标签弹窗 ===== */
+.ya-dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.ya-dialog-header-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+}
+
+.ya-dialog-icon--purple {
+  background: #f0e8fe;
+  color: #7c5ce7;
+}
+
+.ya-dialog-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ya-dialog-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.ya-dialog-subtitle {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 .label-selector {
-  padding: 20px;
+  padding: 24px 20px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.label-selector :deep(.el-radio-button) {
-  margin: 5px;
+.label-selector :deep(.el-radio-group) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.label-selector :deep(.el-radio-button__inner) {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  color: #374151;
+  background: #ffffff;
+  transition: all 0.15s ease;
+  box-shadow: none;
+  letter-spacing: 0.01em;
+  height: auto;
+  line-height: 1.4;
+}
+
+.label-selector :deep(.el-radio-button__inner:hover) {
+  color: #7c5ce7;
+  border-color: #7c5ce7;
+  background: #f8f5fd;
+}
+
+.label-selector :deep(.el-radio-button.is-active .el-radio-button__inner) {
+  background: #7c5ce7;
+  border-color: #7c5ce7;
+  color: #ffffff;
+  box-shadow: none;
+}
+
+.label-selector :deep(.el-radio-button:not(.is-active) .el-radio-button__inner) {
+  box-shadow: none;
+}
+
+.ya-label-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.ya-label-name {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.ya-label-eng {
+  font-size: 10px;
+  opacity: 0.65;
+  line-height: 1.2;
+}
+
+.ya-btn-cancel {
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.ya-btn-primary {
+  border-radius: 8px;
+  font-size: 13px;
 }
 </style>

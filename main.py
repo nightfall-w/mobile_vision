@@ -14,7 +14,7 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
 
 from api import router as api_router
-from core.config import REPORT_URL, MEDIA_ROOT, PROJECT_ROOT
+from core.config import REPORT_URL, REPORT_ROOT, YOLO_OUTPUT_DIR, YOLO_OUTPUT_URL
 from core.exception import unified_exception_handler
 
 # 尝试导入 Redis，如果失败则忽略
@@ -67,17 +67,15 @@ app.include_router(api_router)
 # 挂载静态目录：将 /media 路由映射到本地 media 文件夹
 # 第一个参数是路由前缀，directory 是本地静态文件目录（相对/绝对路径均可）
 app.mount(
-    REPORT_URL,  # 访问前缀：http://localhost:8000/media/xxx.png
-    StaticFiles(directory=MEDIA_ROOT),  # 本地静态文件目录
-    name="media"  # 路由名称（可选，用于反向生成URL）
+    REPORT_URL,
+    StaticFiles(directory=str(REPORT_ROOT)),
+    name="media"
 )
 
 # 挂载 YOLO 输出目录
-YOLO_OUTPUT_ROOT = PROJECT_ROOT / 'models' / 'yolo' / 'output'
-YOLO_OUTPUT_ROOT.mkdir(exist_ok=True)
 app.mount(
-    '/yolo_output',  # 访问前缀
-    StaticFiles(directory=str(YOLO_OUTPUT_ROOT)),
+    YOLO_OUTPUT_URL,
+    StaticFiles(directory=str(YOLO_OUTPUT_DIR)),
     name='yolo_output'
 )
 

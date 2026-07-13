@@ -12,7 +12,7 @@ import shutil
 from pathlib import Path
 
 from core.response import HttpErrcode, api_response
-from core.config import PROJECT_ROOT
+from core.config import YOLO_DATASETS_DIR, YOLO_MODELS_DIR, YOLO_OUTPUT_DIR, YOLO_OUTPUT_URL
 from core.auth_middleware import get_current_user
 from app.user.models import UserModel
 from app.yolo.controller import (
@@ -24,8 +24,7 @@ from models.yolo.predictor import YOLOPredictor
 
 router = APIRouter(prefix="/model", tags=["模型"])
 
-YOLO_ROOT = PROJECT_ROOT / 'models' / 'yolo'
-DATA_STORAGE_ROOT = YOLO_ROOT / 'data'
+DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
 
 
 @router.get("/list")
@@ -114,11 +113,10 @@ async def predict_image_api(
         if save_result:
             result_image_path = temp_dir / safe_filename
             if result_image_path.exists():
-                output_dir = YOLO_ROOT / 'output'
-                output_dir.mkdir(exist_ok=True)
+                output_dir = YOLO_OUTPUT_DIR
                 output_path = output_dir / safe_filename
                 shutil.copy2(str(result_image_path), str(output_path))
-                result_image = f"/yolo_output/{safe_filename}"
+                result_image = f"{YOLO_OUTPUT_URL}/{safe_filename}"
         
         return api_response(data={
             'predictions': formatted_results,

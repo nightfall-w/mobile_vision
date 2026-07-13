@@ -5,7 +5,7 @@
 """
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from sqlalchemy import or_
+from sqlalchemy import or_, desc
 
 from app.llm.models import LLMCredential
 
@@ -54,7 +54,9 @@ def get_llm_credential_by_id_with_key(db: Session, credential_id: int) -> Option
 
 def get_all_llm_credentials(db: Session, workspace_id: Optional[str] = None, page_num: int = 1, page_size: int = 10) -> dict:
     """获取所有凭证（支持分页，不含已删除）"""
-    query = db.query(LLMCredential).filter(LLMCredential.is_deleted == 0)
+    query = db.query(LLMCredential).filter(
+        LLMCredential.is_deleted == 0
+    )
     if workspace_id is None:
         pass
     elif workspace_id == 'system':
@@ -68,7 +70,7 @@ def get_all_llm_credentials(db: Session, workspace_id: Optional[str] = None, pag
     
     total = query.count()
     offset = (page_num - 1) * page_size
-    credentials = query.offset(offset).limit(page_size).all()
+    credentials = query.order_by(desc(LLMCredential.id)).offset(offset).limit(page_size).all()
     
     return {'list': credentials, 'total': total}
 

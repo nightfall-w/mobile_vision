@@ -609,7 +609,7 @@ def execute_test_task(task_data: dict):
                     update_task_status(session, job.task_id, job.status, job.duration)
 
                 # 解锁设备并处理下一个Job
-                next_job_id = pop_next_task(job.device_id)
+                next_job_id = pop_next_task(job.device_android_id)
                 if next_job_id:
                     existing_lock = (
                         session.query(DeviceLock)

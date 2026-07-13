@@ -1,22 +1,27 @@
 <template>
   <div class="testtask-management">
     <div class="sticky-header">
-      <div class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">测试任务管理</h1>
-          <p class="page-subtitle">管理工作空间下的测试任务</p>
-        </div>
-        <div class="header-right">
-          <div class="header-info">
-            <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
-            <el-tag
-              v-if="managers.length > 0"
-              size="small"
-              class="manager-tag"
-            >
-              <el-icon class="mr-1" :size="12"><User/></el-icon>
-              管理员：{{ managerNames }}
-            </el-tag>
+      <div class="ttl-header-card">
+        <div class="ttl-header-inner">
+          <div class="ttl-title-group">
+            <div class="ttl-icon-wrap"><el-icon :size="18"><List /></el-icon></div>
+            <div>
+              <h1 class="ttl-title">测试任务</h1>
+              <p class="ttl-subtitle">查看测试任务列表与状态</p>
+            </div>
+          </div>
+          <div class="ttl-header-actions">
+            <div class="header-info">
+              <p class="info-text">当前空间：<span class="font-medium">{{ workspaceName }}</span></p>
+              <el-tag
+                v-if="managers.length > 0"
+                size="small"
+                class="manager-tag"
+              >
+                <el-icon class="mr-1" :size="12"><User/></el-icon>
+                管理员：{{ managerNames }}
+              </el-tag>
+            </div>
           </div>
         </div>
       </div>
@@ -74,11 +79,11 @@
         element-loading-text="加载中..."
         style="width: 100%"
         :cell-style="{ textAlign: 'center' }"
-        :header-cell-style="{ textAlign: 'center', backgroundColor: '#f5f7fa', color: '#606266' }"
-        border
+        :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
+        stripe
         empty-text="暂无测试任务"
         row-key="task_id"
-        :height="tableHeight"
+        height="100%"
       >
         <el-table-column type="expand">
           <template #default="{ row }">
@@ -100,8 +105,8 @@
                     </el-tag>
                   </template>
                 </el-table-column>
-                <el-table-column prop="duration" label="用时(秒)" width="80">
-                  <template #default="{ row }">{{ row.duration || '-' }}</template>
+                <el-table-column prop="duration" label="用时" width="100">
+                  <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
                 </el-table-column>
                 <el-table-column prop="start_time" label="开始时间" width="160" />
                 <el-table-column label="操作" width="100">
@@ -184,7 +189,8 @@
       </el-table>
     </div>
 
-    <div class="table-footer">
+    </div>
+    <div class="ttl-page-footer">
       <el-pagination
         v-model:current-page="pagination.page_num"
         v-model:page-size="pagination.page_size"
@@ -194,8 +200,8 @@
         @size-change="handleSizeChange"
         @current-change="handlePageChange"
         background
+        small
       />
-    </div>
     </div>
   </div>
 
@@ -223,7 +229,7 @@
 import { ref, reactive, onMounted, onBeforeMount, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Search, User, Warning } from '@element-plus/icons-vue'
+import { Refresh, Search, User, Warning, List } from '@element-plus/icons-vue'
 import axios from '../network/axios'
 import { abortTestTask, deleteTestTask, getWorkspaceDetail } from '../network/api'
 
@@ -260,10 +266,6 @@ const managers = ref([])
 const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 const deleteTaskDialogVisible = ref(false)
 const deleteTaskData = ref(null)
-
-const tableHeight = computed(() => {
-  return window.innerHeight - 320
-})
 
 const fetchWorkspaceDetail = async () => {
   try {
@@ -492,44 +494,16 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1rem;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-.header-left {
-  display: flex;
-  flex-direction: column;
-}
-
-.page-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2d3d;
-}
-
-.page-subtitle {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: #646a73;
-}
-
-.header-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
+.ttl-header-card { background: #fff; border-radius: 12px; }
+.ttl-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.ttl-title-group { display: flex; align-items: center; gap: 12px; }
+.ttl-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ttl-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.ttl-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.ttl-header-actions { display: flex; gap: 8px; }
 
 .header-info {
   display: flex;
@@ -559,11 +533,11 @@ onMounted(() => {
 .search-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
-  padding: 1rem;
-  background: #ffffff;
+  padding: 10px 16px;
+  background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .search-input {
@@ -588,51 +562,33 @@ onMounted(() => {
 
 .action-group {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: nowrap;
   justify-content: center;
 }
 
 .action-btn {
-  display: inline-block;
-  padding: 2px 7px;
+  border: none;
+  border-radius: 6px;
   font-size: 12px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  line-height: 1.6;
-  user-select: none;
+  transition: all 0.12s ease;
+  font-weight: 500;
 }
 
-.action-run {
-  color: #d69e2e;
-  background: #fffff0;
-  border: 1px solid #fefcbf;
-}
-
-.action-run:hover {
-  background: #fef9c3;
-  border-color: #fde68a;
-}
-
-.action-delete {
-  color: #e53e3e;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-}
-
-.action-delete:hover {
-  background: #ffebeb;
-  border-color: #feb2b2;
-}
+.action-run { background: #fffbeb; color: #d97706; }
+.action-run:hover { background: #fef3c7; }
+.action-delete { background: #fef2f2; color: #dc2626; }
+.action-delete:hover { background: #fee2e2; }
 
 .table-container {
-  background: #ffffff;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  padding: 1rem;
+  overflow: hidden;
 }
 
 .id-text {
@@ -671,17 +627,5 @@ onMounted(() => {
   color: #909399;
 }
 
-.table-footer {
-  margin-top: 10px;
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 20px;
-  background-color: #ffffff;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
+.ttl-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 </style>

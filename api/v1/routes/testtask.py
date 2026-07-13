@@ -532,14 +532,14 @@ async def task_stream(task_id: int, db: Session = Depends(get_sync_db)):
 
 # ==================== 设备队列 ====================
 
-@router.get("/queue/{device_id}/status")
-def get_device_queue_status(device_id: str):
+@router.get("/queue/{android_id}/status")
+def get_device_queue_status(android_id: str):
     """获取设备队列状态"""
     from app.testplan.device_queue import peek_device_queue, get_queue_length
 
     try:
-        queue_length = get_queue_length(device_id)
-        waiting_job_ids = peek_device_queue(device_id)
+        queue_length = get_queue_length(android_id)
+        waiting_job_ids = peek_device_queue(android_id)
 
         session = SYNC_SESSION()
         waiting_jobs = []
@@ -552,7 +552,7 @@ def get_device_queue_status(device_id: str):
         session.close()
 
         return api_response(data={
-            'device_id': device_id,
+            'android_id': android_id,
             'queue_length': queue_length,
             'waiting_jobs': waiting_jobs
         })

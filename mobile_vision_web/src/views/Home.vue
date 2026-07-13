@@ -2,42 +2,25 @@
   <div class="app-container bg-gray-50 flex flex-col text-sm h-full">
     <!-- 固定区域：标题卡片 -->
     <div class="sticky-header">
-      <!-- 页面标题卡片 -->
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden bg-white">
-          <div class="relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100 to-purple-100 rounded-full -mr-24 -mt-24 opacity-70"></div>
-            <div class="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full -ml-18 -mb-18 opacity-70"></div>
-
-            <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center p-4 z-10">
-              <div class="page-header mb-3 md:mb-0">
-                <h1 class="text-xl font-bold text-gray-800 mb-1">工作空间</h1>
-                <p class="text-sm text-gray-600">管理您的项目协作空间</p>
-              </div>
-
-              <div class="flex flex-wrap gap-2">
-                <el-button
-                  type="primary"
-                  @click="openCreateDialog"
-                  class="text-sm px-4"
-                >
-                  <el-icon class="mr-1" :size="14">
-                    <Plus/>
-                  </el-icon>
-                  创建工作空间
-                </el-button>
-                <el-button
-                  @click="showJoinDialog = true"
-                  class="text-sm px-4"
-                >
-                  <el-icon class="mr-1" :size="14">
-                    <UserFilled/>
-                  </el-icon>
-                  加入工作空间
-                </el-button>
-              </div>
+      <div class="hm-header-card">
+        <div class="hm-header-inner">
+          <div class="hm-title-group">
+            <div class="hm-icon-wrap"><el-icon :size="18"><Grid /></el-icon></div>
+            <div>
+              <h1 class="hm-title">工作空间</h1>
+              <p class="hm-subtitle">管理工作空间和成员</p>
             </div>
           </div>
-        </el-card>
+          <div class="hm-header-actions">
+            <el-button type="primary" size="small" @click="openCreateDialog">
+              <el-icon><Plus/></el-icon> 创建工作空间
+            </el-button>
+            <el-button @click="showJoinDialog = true" size="small">
+              <el-icon><UserFilled/></el-icon> 加入工作空间
+            </el-button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 滚动内容区域 -->
@@ -245,19 +228,20 @@
           </el-tab-pane>
         </el-tabs>
 
-        <!-- 固定在底部的分页组件 -->
-        <div class="table-footer" v-if="total > 0">
-          <el-pagination
-            @size-change="handleSizeChange"
-            @current-change="handleCurrentChange"
-            :current-page="currentPage"
-            :page-sizes="[12,24,48]"
-            :page-size="pageSize"
-            layout="total, sizes, prev, pager, next, jumper"
-            :total="total"
-            background
-          />
-        </div>
+    </div>
+
+    <div class="hm-page-footer" v-if="total > 0">
+      <el-pagination
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+        :current-page="currentPage"
+        :page-sizes="[12,24,48]"
+        :page-size="pageSize"
+        layout="total, sizes, prev, pager, next, jumper"
+        :total="total"
+        background
+        small
+      />
     </div>
 
     <!-- 创建工作空间对话框 -->
@@ -720,6 +704,7 @@ import {nextTick, onMounted, reactive, ref, watch} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {
   Calendar,
+  Grid,
   InfoFilled,
   OfficeBuilding,
   Plus,
@@ -1654,10 +1639,13 @@ const selectRole = (role) => {
 }
 
 /* 页面标题卡片样式 */
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 12px;
-}
+.hm-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+.hm-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.hm-title-group { display: flex; align-items: center; gap: 12px; }
+.hm-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hm-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.hm-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.hm-header-actions { display: flex; gap: 8px; }
 
 /* 页面标题区域 */
 .page-header {
@@ -1689,19 +1677,7 @@ const selectRole = (role) => {
 }
 
 /* 固定底部的分页组件 */
-.table-footer {
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 20px;
-  margin-top: 10px;
-  background-color: white;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
+.hm-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 
 /* ===== 创建工作空间弹窗 ===== */
 .wc-dialog :deep(.el-dialog__header) {

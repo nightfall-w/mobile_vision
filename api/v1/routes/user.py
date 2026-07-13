@@ -3,7 +3,6 @@
 @Description：用户相关API路由
 @Author：baojun.wang
 """
-import os
 
 from fastapi import APIRouter, Depends
 
@@ -66,23 +65,6 @@ def login_endpoint(
         db: Session = Depends(get_sync_db)
 ):
     """用户登录"""
-    env_super_admin = os.getenv("SYSTEM_ADMIN")
-    env_super_admin_password = os.getenv("SYSTEM_ADMIN_PASSWORD")
-
-    if env_super_admin and env_super_admin_password \
-            and request.username == env_super_admin and request.password == env_super_admin_password:
-        access_token = JWTManager.create_access_token(data={"sub": request.username})
-        userinfo = {
-            "id": 0,
-            "username": request.username,
-            "email": "admin@example.com",
-            "nickname": "超级管理员",
-            "is_deleted": False,
-            "access_token": access_token,
-            "token_type": "bearer"
-        }
-        return api_response(data=userinfo, code=HttpErrcode.SUCCESS)
-
     user = authenticate_user(db, request.username, request.password)
     if not user:
         return api_response(code=HttpErrcode.PARAMS_MISSING, message="用户名或密码错误")

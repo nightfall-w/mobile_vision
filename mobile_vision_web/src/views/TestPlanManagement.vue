@@ -3,9 +3,12 @@
     <!-- 固定区域：标题卡片和筛选区域 -->
     <div class="sticky-header">
       <div class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">测试计划</h1>
-          <p class="page-subtitle">管理工作空间下的测试计划</p>
+        <div class="ttl-title-group">
+          <div class="ttl-icon-wrap"><el-icon :size="18"><Calendar /></el-icon></div>
+          <div>
+            <h1 class="page-title">测试计划</h1>
+            <p class="page-subtitle">管理工作空间下的测试计划</p>
+          </div>
         </div>
         <div class="header-right">
           <div class="header-info">
@@ -56,11 +59,11 @@
         v-loading="loading"
         element-loading-text="加载中..."
         style="width: 100%"
-        border
         :cell-style="{ textAlign: 'center' }"
-        :header-cell-style="{ textAlign: 'center', backgroundColor: '#f5f7fa', color: '#606266' }"
+        :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
+        stripe
         empty-text="暂无测试计划"
-        :height="tableHeight"
+        height="100%"
       >
         <el-table-column label="ID" width="64">
           <template #default="{ row }">
@@ -84,19 +87,20 @@
           </el-table-column>
       </el-table>
     </div>
+    </div>
 
-    <div class="table-footer">
-        <el-pagination
-          :current-page="pageNum"
-          :page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handlePageChange"
-          background
-        />
-      </div>
+    <div class="tpm-page-footer">
+      <el-pagination
+        :current-page="pageNum"
+        :page-size="pageSize"
+        :total="total"
+        :page-sizes="[10, 20, 50, 100]"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handlePageChange"
+        background
+        small
+      />
     </div>
 
     <el-dialog
@@ -209,15 +213,33 @@
       </template>
     </el-dialog>
 
-    <el-dialog
+    <el-drawer
       v-model="addCaseDialogVisible"
-      :title="`关联用例 - ${selectedPlan?.name || ''}`"
-      width="1200px"
-      class="case-management-dialog"
+      size="85%"
+      direction="rtl"
+      class="case-drawer"
       @open="handleDialogOpen"
       @close="handleDialogClose"
       destroy-on-close
     >
+      <template #header>
+        <div class="drawer-header">
+          <div class="drawer-header-left">
+            <div class="drawer-header-icon">
+              <el-icon :size="18"><DocumentAdd /></el-icon>
+            </div>
+            <div class="drawer-header-text">
+              <div class="drawer-header-title">关联测试用例</div>
+              <div class="drawer-header-subtitle">{{ selectedPlan?.name }} · 配置计划执行的用例与设备</div>
+            </div>
+          </div>
+          <div class="drawer-header-right">
+            <el-tag size="small" type="info" effect="plain" class="drawer-header-tag">
+              已关联 {{ associatedCaseList.length }} 个用例
+            </el-tag>
+          </div>
+        </div>
+      </template>
       <el-tabs v-model="activeTab" class="case-tabs" @tab-change="handleTabChange">
         <el-tab-pane label="添加用例" name="add">
           <div class="add-case-tab">
@@ -242,10 +264,10 @@
               :data="availableCaseList"
               v-loading="caseLoading"
               @selection-change="handleSelectionChange"
-              border
               class="case-table"
+              stripe
               style="width: 100%"
-              height="380"
+              height="360"
             >
               <el-table-column type="selection" width="50" />
               <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
@@ -265,36 +287,28 @@
                 </template>
               </el-table-column>
             </el-table>
-            <div v-if="selectedToAdd.length > 0" class="batch-config-bar">
-              <span class="batch-label">已选 <strong>{{ selectedToAdd.length }}</strong> 个用例</span>
-              <el-select v-model="batchDeviceId" placeholder="选择执行设备" size="default" style="width: 220px">
-                <el-option label="🔄 动态分配（空闲设备）" :value="''" />
-                <el-option
-                  v-for="d in deviceOptions"
-                  :key="d.id"
-                  :label="`${d.brand} ${d.model} (${d.id})`"
-                  :value="d.id"
-                />
-              </el-select>
-              <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 200px">
-                <el-option
-                  v-for="l in llmOptions"
-                  :key="l.id"
-                  :label="`${l.model} (${l.base_url || 'N/A'})`"
-                  :value="l.id"
-                />
-              </el-select>
-              <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 140px">
-                <el-option
-                  v-for="y in yoloOptions"
-                  :key="y.id"
-                  :label="y.name"
-                  :value="y.id"
-                />
-              </el-select>
-              <el-button type="primary" @click="batchAddCases" size="default">
-                添加 ({{ selectedToAdd.length }})
-              </el-button>
+            <div v-if="selectedToAdd.length > 0" class="batch-config">
+              <div class="batch-config-header">
+                <div class="batch-config-badge">{{ selectedToAdd.length }}</div>
+                <span>已选 <strong>{{ selectedToAdd.length }}</strong> 个用例</span>
+                <span class="batch-config-sep">|</span>
+                <span class="batch-config-hint">统一配置以下参数后批量添加</span>
+              </div>
+              <div class="batch-config-fields">
+                <el-select v-model="batchDeviceId" placeholder="执行设备" size="default" style="width: 200px">
+                  <el-option label="🔄 动态分配（空闲设备）" :value="''" />
+                  <el-option v-for="d in deviceOptions" :key="d.id" :label="`${d.brand} ${d.model} (${d.id})`" :value="d.id" />
+                </el-select>
+                <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 180px">
+                  <el-option v-for="l in llmOptions" :key="l.id" :label="`${l.model} (${l.base_url || 'N/A'})`" :value="l.id" />
+                </el-select>
+                <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 130px">
+                  <el-option v-for="y in yoloOptions" :key="y.id" :label="y.name" :value="y.id" />
+                </el-select>
+                <el-button type="primary" @click="batchAddCases" size="default">
+                  添加 ({{ selectedToAdd.length }})
+                </el-button>
+              </div>
             </div>
             <div class="table-pagination">
               <el-pagination
@@ -312,15 +326,25 @@
         </el-tab-pane>
         <el-tab-pane label="已关联用例" name="associated">
           <div class="associated-case-tab">
-            <div class="associated-stats">
-              <span class="stat-total">已关联 <strong>{{ associatedCaseList.length }}</strong> 个用例</span>
-              <span class="stat-divider">|</span>
-              <span class="stat-specified">指定设备 <strong>{{ specifiedDeviceCount }}</strong></span>
-              <span class="stat-divider">|</span>
-              <span class="stat-dynamic">动态分配 <strong>{{ dynamicAssignCount }}</strong></span>
-            </div>
-            <div class="tab-toolbar">
+            <div class="associated-header">
+              <div class="associated-stats">
+                <div class="stat-item stat-total">
+                  <span class="stat-num">{{ associatedCaseList.length }}</span>
+                  <span class="stat-label">全部用例</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item stat-specified">
+                  <span class="stat-num">{{ specifiedDeviceCount }}</span>
+                  <span class="stat-label">指定设备</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-item stat-dynamic">
+                  <span class="stat-num">{{ dynamicAssignCount }}</span>
+                  <span class="stat-label">动态分配</span>
+                </div>
+              </div>
               <el-button type="danger" size="small" @click="batchRemoveRelations" :disabled="selectedToRemove.length === 0">
+                <el-icon :size="13"><Delete /></el-icon>
                 批量删除 ({{ selectedToRemove.length }})
               </el-button>
             </div>
@@ -328,13 +352,13 @@
               ref="associatedTableRef"
               :data="associatedCaseList"
               @selection-change="handleAssociatedSelectionChange"
-              border
               class="case-table"
+              stripe
               style="width: 100%"
-              height="410"
+              height="420"
             >
               <el-table-column type="selection" width="50" />
-              <el-table-column prop="case_name" label="用例名称" min-width="150" show-overflow-tooltip />
+              <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
               <el-table-column prop="case_level" label="优先级" width="70">
                 <template #default="{ row }">
                   <el-tag size="small" :type="row.case_level === 'P0' ? 'danger' : row.case_level === 'P1' ? 'warning' : 'info'">
@@ -365,7 +389,7 @@
                   <span class="config-text">{{ getLLMName(row.llm_credential_id) || '-' }}</span>
                 </template>
               </el-table-column>
-              <el-table-column label="YOLO" width="100">
+              <el-table-column label="YOLO" width="200">
                 <template #default="{ row }">
                   <span class="config-text">{{ getYOLOName(row.yolo_model_id) || '-' }}</span>
                 </template>
@@ -394,7 +418,7 @@
           </div>
         </el-tab-pane>
       </el-tabs>
-    </el-dialog>
+    </el-drawer>
 
     <!-- 编辑关联用例配置弹窗 -->
     <el-dialog
@@ -581,7 +605,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus, Search, Refresh, Warning, User, InfoFilled, Iphone, Edit, Delete, Setting, Document, DocumentAdd, MagicStick, Cpu, Check, Monitor, Aim, TrendCharts } from '@element-plus/icons-vue'
+import { Plus, Search, Refresh, Warning, User, InfoFilled, Iphone, Edit, Delete, Setting, Document, DocumentAdd, MagicStick, Cpu, Check, Monitor, Aim, TrendCharts, Calendar } from '@element-plus/icons-vue'
 import axios from '@/network/axios'
 import {
   getTestPlanList,
@@ -657,10 +681,6 @@ const editRelationForm = reactive({
   case_name: '',
   case_level: '',
   status: ''
-})
-
-const tableHeight = computed(() => {
-  return window.innerHeight - 320
 })
 
 const reasoningOptions = [
@@ -1232,30 +1252,41 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding-top: 10px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
+  padding: 14px 18px;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
-.header-left {
+.ttl-title-group {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.ttl-icon-wrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #5b6ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .page-title {
   margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #1f2d3d;
+  font-size: 17px;
+  font-weight: 700;
+  color: #1d1d1f;
 }
 
 .page-subtitle {
@@ -1304,11 +1335,11 @@ onMounted(() => {
 .search-bar {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
-  padding: 1rem;
+  padding: 10px 16px;
   background: #ffffff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .search-input {
@@ -1328,101 +1359,44 @@ onMounted(() => {
 }
 
 .table-container {
-  background: #ffffff;
+  flex: 1;
+  min-height: 0;
+  background: #fff;
+  border: 1px solid #e8e8e8;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-  padding: 1rem;
+  overflow: hidden;
 }
 
 
 
 .action-group {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   flex-wrap: nowrap;
 }
 
 .action-btn {
-  display: inline-block;
-  padding: 2px 7px;
+  border: none;
+  border-radius: 6px;
   font-size: 12px;
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 4px 10px;
   cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  line-height: 1.6;
-  user-select: none;
+  transition: all 0.12s ease;
+  font-weight: 500;
 }
 
-.action-edit {
-  color: #3182ce;
-  background: #ebf8ff;
-  border: 1px solid #bee3f8;
-}
+.action-edit { background: #eef2ff; color: #5b6ef7; }
+.action-edit:hover { background: #dde3ff; }
+.action-link { background: #ecfdf5; color: #059669; }
+.action-link:hover { background: #d1fae5; }
+.action-run { background: #fffbeb; color: #d97706; }
+.action-run:hover { background: #fef3c7; }
+.action-view { background: #eef2ff; color: #5b6ef7; }
+.action-view:hover { background: #dde3ff; }
+.action-delete { background: #fef2f2; color: #dc2626; }
+.action-delete:hover { background: #fee2e2; }
 
-.action-edit:hover {
-  background: #d4edfa;
-  border-color: #90cdf4;
-}
-
-.action-link {
-  color: #38a169;
-  background: #f0fff4;
-  border: 1px solid #c6f6d5;
-}
-
-.action-link:hover {
-  background: #d4f5e4;
-  border-color: #9ae6b4;
-}
-
-.action-run {
-  color: #d69e2e;
-  background: #fffff0;
-  border: 1px solid #fefcbf;
-}
-
-.action-run:hover {
-  background: #fef9c3;
-  border-color: #fde68a;
-}
-
-.action-view {
-  color: #718096;
-  background: #f7fafc;
-  border: 1px solid #e2e8f0;
-}
-
-.action-view:hover {
-  background: #edf2f7;
-  border-color: #cbd5e0;
-}
-
-.action-delete {
-  color: #e53e3e;
-  background: #fff5f5;
-  border: 1px solid #fed7d7;
-}
-
-.action-delete:hover {
-  background: #ffebeb;
-  border-color: #feb2b2;
-}
-
-.table-footer {
-  margin-top: 10px;
-  position: sticky;
-  bottom: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 20px;
-  background-color: #ffffff;
-  border-top: 1px solid #ebeef5;
-  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
-  z-index: 100;
-}
+.tpm-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 
 .execute-info {
   padding: 10px;
@@ -1551,7 +1525,10 @@ onMounted(() => {
 }
 
 .case-tabs {
-  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
 }
 
 .add-case-tab,
@@ -1559,13 +1536,13 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
 }
 
 .tab-toolbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 0 10px 0;
 }
 
 .toolbar-left {
@@ -1588,64 +1565,184 @@ onMounted(() => {
   padding-top: 12px;
 }
 
-:deep(.case-management-dialog .el-dialog__body) {
-  padding: 15px 20px 20px;
+/* ===== 关联用例 Drawer ===== */
+.case-drawer :deep(.el-drawer__header) {
+  padding: 20px 24px 16px;
+  margin-bottom: 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-/* 关联用例统计栏 */
-.associated-stats {
+.case-drawer :deep(.el-drawer__body) {
+  padding: 0 20px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.case-drawer .el-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.case-drawer :deep(.el-tabs__content) {
+  flex: 1;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.case-drawer :deep(.el-tab-pane) {
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Drawer header */
+.drawer-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #f8fafc;
-  border-radius: 8px;
-  font-size: 13px;
-  color: #64748b;
+  justify-content: space-between;
+  width: 100%;
+  padding-right: 10px;
 }
 
-.stat-total strong {
-  color: #3b82f6;
-}
-
-.stat-specified strong {
-  color: #10b981;
-}
-
-.stat-dynamic strong {
-  color: #f59e0b;
-}
-
-.stat-divider {
-  color: #d1d5db;
-}
-
-/* 批量配置栏 */
-.batch-config-bar {
+.drawer-header-left {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
-  border: 1px solid #e0e7ff;
+}
+
+.drawer-header-icon {
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
+  background: #eef2ff;
+  color: #5b6ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.drawer-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drawer-header-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1d1d1f;
+  letter-spacing: -0.3px;
+}
+
+.drawer-header-subtitle {
+  font-size: 12.5px;
+  color: #8e8e93;
+}
+
+.drawer-header-tag {
+  background: #f0f4ff;
+  color: #5b6ef7;
+  border: 1px solid #dce3ff;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/* 关联用例统计栏 */
+.associated-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.associated-stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.stat-num {
+  font-size: 18px;
+  font-weight: 700;
+  color: #5b6ef7;
+}
+
+.stat-total .stat-num { color: #5b6ef7; }
+.stat-specified .stat-num { color: #059669; }
+.stat-dynamic .stat-num { color: #d97706; }
+
+.stat-label {
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 20px;
+  background: #e5e7eb;
+}
+
+/* 批量配置栏 */
+.batch-config {
+  background: #f8f9fc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 16px;
   animation: slideUp 0.2s ease-out;
+}
+
+.batch-config-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #4b5563;
+}
+
+.batch-config-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #5b6ef7;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.batch-config-sep {
+  color: #d1d5db;
+  font-size: 12px;
+}
+
+.batch-config-hint {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.batch-config-fields {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.batch-label {
-  font-size: 13px;
-  color: #4b5563;
-  white-space: nowrap;
-}
-
-.batch-label strong {
-  color: #3b82f6;
-  font-size: 15px;
 }
 
 /* 已关联用例标签样式 */

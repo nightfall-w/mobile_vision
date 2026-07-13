@@ -1,5 +1,6 @@
 """
 Android设备接口 - 基于ADB实现设备控制和页面识别
+支持双通道页面感知：DOM快通道 (uiautomator2) + 视觉兜底 (YOLO+OCR)
 """
 import base64
 import hashlib
@@ -8,11 +9,21 @@ import os
 import re
 import subprocess
 import time
-from typing import List, Optional
+import xml.etree.ElementTree as ET
+from typing import List, Optional, Dict, Tuple
 
 from automation_agent.page_recognizer import PageElementRecognizer
 from automation_agent.types import InterfaceType, PageContext
 from utils.custom_logging import logger
+
+# 尝试导入 uiautomator2，失败时降级
+try:
+    import uiautomator2 as u2
+
+    _HAS_U2 = True
+except ImportError:
+    _HAS_U2 = False
+    logger.warning("uiautomator2 未安装，DOM 识别通道不可用，将使用视觉通道")
 
 
 class AndroidInterface:
@@ -32,14 +43,192 @@ class AndroidInterface:
         self.ocr_engine = ocr_engine
         self.class_names_from_db = class_names_from_db
         self._recognizer = None
+        self._u2 = None
         self.job_id: Optional[int] = None
 
         # 获取设备实际分辨率
         self.width, self.height = self._get_device_resolution()
         logger.info(f"设备分辨率: {self.width}x{self.height}")
 
+        # 初始化 uiautomator2（可选）
+        if _HAS_U2:
+            try:
+                self._u2 = u2.connect(self.device_id)
+                logger.info("uiautomator2 初始化成功")
+            except Exception as e:
+                logger.warning(f"uiautomator2 初始化失败，将使用视觉通道: {e}")
+                self._u2 = None
+
         self._init_recognizer()
         self.page_hash: Optional[str] = None
+
+    # ── DOM 通道 (uiautomator2) ──────────────────────────────────────
+
+    def _get_dom_elements(self) -> Tuple[List[Dict], bool]:
+        """通过 uiautomator2 获取页面 DOM 元素列表
+
+        Returns:
+            (elements, success): elements 为结构化元素列表，success 表示是否成功获取
+        """
+        if self._u2 is None:
+            return [], False
+
+        try:
+            xml = self._u2.dump_hierarchy()
+            if not xml or not xml.strip():
+                return [], False
+
+            root = ET.fromstring(xml.encode("utf-8"))
+            elements = []
+            self._flatten_xml_node(root, elements, parent_index="0")
+            return elements, True
+        except Exception as e:
+            logger.warning(f"DOM 获取失败: {e}")
+            return [], False
+
+    def _flatten_xml_node(self, node: ET.Element, output: List[Dict],
+                          parent_index: str = "", depth: int = 0):
+        """递归展平 XML 节点为结构化元素列表"""
+        if depth > 50:  # 防止过深递归
+            return
+
+        # 解析 bounds: "[x1,y1][x2,y2]" → {"x1":..., "y1":..., "x2":..., "y2":...}
+        bounds_str = node.get("bounds", "")
+        bbox = self._parse_bounds(bounds_str)
+        if bbox is None:
+            bbox = {"x1": 0, "y1": 0, "x2": 0, "y2": 0}
+
+        class_name = node.get("class", "")
+        # 提取短类名: "android.widget.Button" → "Button"
+        type_short = class_name.split(".")[-1] if class_name else "Unknown"
+
+        text = node.get("text", "")
+        content_desc = node.get("content-desc", "")
+        resource_id = node.get("resource-id", "")
+        clickable = node.get("clickable", "false") == "true"
+        enabled = node.get("enabled", "true") == "true"
+        checkable = node.get("checkable", "false") == "true"
+        checked = node.get("checked", "false") == "true"
+        focusable = node.get("focusable", "false") == "true"
+        focused = node.get("focused", "false") == "true"
+        scrollable = node.get("scrollable", "false") == "true"
+
+        index = node.get("index", "0")
+        node_id = f"{parent_index}.{index}" if parent_index != "0" else index
+
+        # 只保留有意义的节点（有尺寸、或是交互元素）
+        bbox_w = bbox["x2"] - bbox["x1"]
+        bbox_h = bbox["y2"] - bbox["y1"]
+        has_size = bbox_w > 0 and bbox_h > 0
+
+        # 构建元素
+        element = {
+            "id": f"dom_{node_id}",
+            "type": class_name,
+            "type_short": type_short,
+            "bbox": [int(bbox["x1"]), int(bbox["y1"]), int(bbox["x2"]), int(bbox["y2"])],
+            "bbox_center": {
+                "center_x": int((bbox["x1"] + bbox["x2"]) / 2),
+                "center_y": int((bbox["y1"] + bbox["y2"]) / 2),
+            },
+            "text": text,
+            "content_desc": content_desc,
+            "resource_id": resource_id,
+            "clickable": clickable,
+            "enabled": enabled,
+            "checkable": checkable,
+            "checked": checked,
+            "focusable": focusable,
+            "focused": focused,
+            "scrollable": scrollable,
+            "source": "dom",
+            "depth": depth,
+            "children": [],
+        }
+
+        if has_size:
+            output.append(element)
+
+        # 递归子节点
+        for child in node:
+            self._flatten_xml_node(child, output, node_id, depth + 1)
+
+    def _parse_bounds(self, bounds_str: str) -> Optional[Dict]:
+        """解析 uiautomator2 bounds 格式: "[x1,y1][x2,y2]" """
+        if not bounds_str:
+            return None
+        match = re.match(r"\[(\d+),(\d+)\]\[(\d+),(\d+)\]", bounds_str)
+        if match:
+            return {
+                "x1": int(match.group(1)),
+                "y1": int(match.group(2)),
+                "x2": int(match.group(3)),
+                "y2": int(match.group(4)),
+            }
+        return None
+
+    def _is_system_ui(self, elem: Dict) -> bool:
+        """判断是否为系统 UI 元素（状态栏、导航栏）"""
+        resource_id = elem.get("resource_id", "") or ""
+        return resource_id.startswith("com.android.systemui")
+
+    def _is_empty_container(self, elem: Dict) -> bool:
+        """判断是否为空布局容器（无文本、无描述、纯布局用途）"""
+        if elem.get("text") or elem.get("content_desc"):
+            return False
+        type_short = elem.get("type_short", "")
+        return type_short in ("View", "FrameLayout", "LinearLayout", "RelativeLayout")
+
+    def _dom_is_rich(self, dom_elements: List[Dict]) -> bool:
+        """判断 DOM 是否足够丰富，值得使用 DOM 通道
+
+        规则：
+        - 排除系统 UI 元素（状态栏、导航栏）
+        - 排除空布局容器（View/FrameLayout 等无文本节点）
+        - 排除 WebView 只读场景
+        - 剩余元素中至少 3 个 clickable，至少 1 个有文本
+        """
+        clickable_count = 0
+        text_count = 0
+        webview_count = 0
+        filtered_out = 0
+
+        for elem in dom_elements:
+            # 跳过系统 UI（状态栏、导航栏）
+            if self._is_system_ui(elem):
+                filtered_out += 1
+                continue
+
+            # 跳过空布局容器
+            if self._is_empty_container(elem):
+                filtered_out += 1
+                continue
+
+            if "WebView" in elem.get("type", ""):
+                webview_count += 1
+
+            if elem.get("clickable"):
+                clickable_count += 1
+
+            if elem.get("text") or elem.get("content_desc"):
+                text_count += 1
+
+        # 如果 WebView 占比过高
+        remaining = len(dom_elements) - filtered_out
+        if webview_count > 0 and remaining > 0 and webview_count > remaining * 0.3:
+            logger.info(f"【uiautomator2】DOM 通道跳过：WebView 占比过高 ({webview_count}/{remaining})")
+            return False
+
+        is_rich = clickable_count >= 3 and text_count >= 1
+        logger.info(
+            f"【uiautomator2】DOM 丰富度检查: "
+            f"有效元素(clickable={clickable_count}, text={text_count}), "
+            f"已过滤(系统UI+空容器={filtered_out}), "
+            f"总计={len(dom_elements)}, rich={is_rich}"
+        )
+        return is_rich
+
+    # ── 视觉通道 (YOLO+OCR) ──────────────────────────────────────────
 
     def _get_device_resolution(self) -> tuple:
         """获取设备实际分辨率（优先取Override size，如果没有则取Physical size）"""
@@ -92,43 +281,133 @@ class AndroidInterface:
         except Exception:
             return ""
 
-    async def get_context(self) -> PageContext:
-        """获取页面上下文（每次重新OCR识别，确保页面变化不遗漏）"""
+    async def _get_visual_context(self) -> PageContext:
+        """视觉通道：截图 + YOLO + OCR 识别"""
+        logger.info("【视觉通道】开始 YOLO+OCR 识别...")
         screenshot_path = await self._take_screenshot()
         self.last_screenshot_path = screenshot_path
         self.page_hash = self._hash_file(screenshot_path)
 
-        if self._recognizer:
-            t0 = time.time()
-            page_info = self._recognizer.recognize_from_image(screenshot_path)
-            t1 = time.time()
-
-            # OCR完成后在原截图上标注YOLO结果（避免标注文字被OCR误识别）
-            try:
-                self._recognizer.draw_annotated_image(screenshot_path, screenshot_path)
-            except Exception as e:
-                logger.warning(f"生成标注截图失败: {e}")
-
-            structured_elements = self._recognizer.integrate_elements_and_texts(
-                page_info.elements, page_info.texts
-            )
-
-            t2 = time.time()
-            logger.info(
-                f"页面元素与文本识别耗时: {t1 - t0:.2f}s (引擎: {self.ocr_engine}), "
-                f"元素整合耗时: {t2 - t1:.2f}s, 总耗时: {t2 - t0:.2f}s"
-            )
-            context = PageContext(
-                page_id=page_info.page_id,
-                image_width=page_info.image_width,
-                image_height=page_info.image_height,
-                elements=page_info.elements,
-                texts=page_info.texts,
-                structured_elements=structured_elements,
-            )
-            return context
-        else:
+        if not self._recognizer:
             raise Exception("未找到可用的页面识别器")
+
+        t0 = time.time()
+        page_info = self._recognizer.recognize_from_image(screenshot_path)
+        t1 = time.time()
+
+        # OCR完成后在原截图上标注YOLO结果（避免标注文字被OCR误识别）
+        try:
+            self._recognizer.draw_annotated_image(screenshot_path, screenshot_path)
+        except Exception as e:
+            logger.warning(f"生成标注截图失败: {e}")
+
+        structured_elements = self._recognizer.integrate_elements_and_texts(
+            page_info.elements, page_info.texts
+        )
+
+        t2 = time.time()
+        logger.info(
+            f"【视觉通道】识别耗时: {t1 - t0:.2f}s (引擎: {self.ocr_engine}), "
+            f"元素整合耗时: {t2 - t1:.2f}s, 总耗时: {t2 - t0:.2f}s, "
+            f"元素数: {len(page_info.elements)}, 文本数: {len(page_info.texts)}"
+        )
+
+        logger.info("【视觉通道】识别完成，返回 PageContext(source=visual)")
+        context = PageContext(
+            page_id=page_info.page_id,
+            image_width=page_info.image_width,
+            image_height=page_info.image_height,
+            elements=page_info.elements,
+            texts=page_info.texts,
+            structured_elements=structured_elements,
+            source="visual",
+        )
+        return context
+
+    async def _get_dom_context(self) -> PageContext:
+        """DOM 通道：uiautomator2 dump + 截图"""
+        logger.info("【DOM 通道】开始 uiautomator2 识别...")
+        screenshot_path = await self._take_screenshot()
+        self.last_screenshot_path = screenshot_path
+        self.page_hash = self._hash_file(screenshot_path)
+
+        dom_elements, success = self._get_dom_elements()
+        if not success or not dom_elements:
+            logger.warning("【DOM 通道】获取失败，降级到视觉通道")
+            return await self._get_visual_context()
+
+        # 过滤出有意义的元素用于决策（排除系统 UI 和空容器）
+        interactive_elements = [
+            e for e in dom_elements
+            if (e.get("clickable") or e.get("text") or e.get("content_desc"))
+            and not self._is_system_ui(e)
+            and not self._is_empty_container(e)
+        ]
+
+        # 如果没有交互元素，降级到视觉
+        if not interactive_elements:
+            logger.info("【DOM 通道】无交互元素，降级到视觉通道")
+            return await self._get_visual_context()
+
+        page_id = f"dom_{int(time.time() * 1000)}"
+
+        # 使用 DOM 元素作为 structured_elements
+        # 同时保留原始 DOM 数据在 elements 中
+        logger.info(
+            f"【DOM 通道】识别完成: 共 {len(dom_elements)} 个元素, "
+            f"{len(interactive_elements)} 个交互元素"
+        )
+        logger.info(
+            f"【DOM 通道】交互元素示例: "
+            f"{json.dumps(interactive_elements[:3], ensure_ascii=False, indent=2)}"
+        )
+
+        logger.info("【DOM 通道】识别完成，返回 PageContext(source=dom)")
+        context = PageContext(
+            page_id=page_id,
+            image_width=self.width,
+            image_height=self.height,
+            elements=dom_elements,
+            texts=[],
+            structured_elements=interactive_elements,
+            source="dom",
+        )
+        return context
+
+    # ── 公共接口 ──────────────────────────────────────────────────────
+
+    async def get_context(self) -> PageContext:
+        """获取页面上下文
+
+        双通道策略：
+        1. 尝试 DOM 快通道（uiautomator2，0.3-0.8s）
+        2. 如果 DOM 不够丰富，降级到视觉通道（YOLO+OCR，2-3s）
+        """
+        # ---- 通道选择日志 ----
+        if self._u2 is not None:
+            logger.info("═" * 50)
+            logger.info(f"【uiautomator2】DOM 通道可用，开始尝试...")
+            dom_elements, success = self._get_dom_elements()
+            if success:
+                clickable_count = sum(1 for e in dom_elements if e.get("clickable"))
+                text_count = sum(1 for e in dom_elements if e.get("text") or e.get("content_desc"))
+                logger.info(f"【uiautomator2】DOM 获取成功: {len(dom_elements)} 个元素, "
+                            f"clickable={clickable_count}, 含文本={text_count}")
+
+                if self._dom_is_rich(dom_elements):
+                    logger.info(f"【uiautomator2】DOM 足够丰富 → 使用 DOM 快通道")
+                    logger.info("═" * 50)
+                    return await self._get_dom_context()
+                else:
+                    logger.info(f"【uiautomator2】DOM 不够丰富 → 降级到视觉通道")
+            else:
+                logger.warning(f"【uiautomator2】DOM 获取失败 → 降级到视觉通道")
+            logger.info("═" * 50)
+        else:
+            logger.info(f"【uiautomator2】未初始化或不可用 → 使用视觉通道")
+            logger.info(f"    (如需启用请安装 uiautomator2 并确保设备已连接)")
+
+        return await self._get_visual_context()
 
     async def list_devices(self):
         """列出可用设备"""
@@ -171,7 +450,6 @@ class AndroidInterface:
         base64_text = base64.b64encode(text_bytes).decode('ascii')
 
         # 3. 构建 ADB 命令
-        # 使用 ADB_INPUT_B64 action 和 --es msg 参数传递 Base64 字符串
         command = ["adb"]
         if self.device_id:
             command.extend(["-s", self.device_id])
@@ -288,7 +566,6 @@ class AndroidInterface:
         if self.device_id:
             command.extend(["-s", self.device_id])
         # 先尝试通过 monkey 启动（自动处理 Activity 选择）
-        # adb shell monkey -p <package> -c android.intent.category.LAUNCHER 1
         command.extend(["shell", "monkey", "-p", package_name, "-c", "android.intent.category.LAUNCHER", "1"])
         self._run_adb_command(command)
         logger.debug(f"打开App: {package_name}")
@@ -322,13 +599,8 @@ class AndroidInterface:
 
     async def _take_screenshot(self) -> str:
         """获取截图"""
-        base_dir = os.path.join(
-            os.path.dirname(
-                os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            ),
-            "outputs",
-            "task_screenshot",
-        )
+        from core.config import SCREENSHOTS_DIR
+        base_dir = str(SCREENSHOTS_DIR)
 
         if self.job_id:
             device_dir = os.path.join(base_dir, str(self.job_id))
@@ -337,7 +609,6 @@ class AndroidInterface:
 
         os.makedirs(device_dir, exist_ok=True)
 
-        import time
         timestamp = int(time.time() * 1000)
         screenshot_path = os.path.join(
             device_dir, f"{timestamp}.png"

@@ -2,26 +2,22 @@
   <div class="device-manager">
     <!-- 固定区域：标题卡片 -->
     <div class="sticky-header">
-      <!-- 页面标题卡片 -->
-      <el-card class="header-card rounded-xl shadow-md border-0 overflow-hidden bg-white">
-        <div class="relative overflow-hidden">
-          <div class="absolute top-0 right-0 w-48 h-48 bg-gradient-to-bl from-blue-100 to-purple-100 rounded-full -mr-24 -mt-24 opacity-70"></div>
-          <div class="absolute bottom-0 left-0 w-36 h-36 bg-gradient-to-tr from-green-100 to-blue-100 rounded-full -ml-18 -mb-18 opacity-70"></div>
-
-          <div class="relative flex flex-col md:flex-row justify-between items-start md:items-center p-4 z-10">
-            <div class="page-header mb-3 md:mb-0">
-              <h1 class="text-xl font-bold text-gray-800 mb-1">设备管理</h1>
-              <p class="text-sm text-gray-600">管理连接的移动设备</p>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-              <el-button type="primary" @click="loadDevices" :loading="loading" class="text-sm px-4">
-                <el-icon><Refresh /></el-icon> 刷新列表
-              </el-button>
+      <div class="dm-header-card">
+        <div class="dm-header-inner">
+          <div class="dm-title-group">
+            <div class="dm-icon-wrap"><el-icon :size="18"><Monitor /></el-icon></div>
+            <div>
+              <h1 class="dm-title">设备管理</h1>
+              <p class="dm-subtitle">管理连接的移动设备</p>
             </div>
           </div>
+          <div class="dm-header-actions">
+            <button class="dm-btn dm-btn-ghost" @click="loadDevices" :disabled="loading">
+              <el-icon :size="14"><Refresh /></el-icon> 刷新列表
+            </button>
+          </div>
         </div>
-      </el-card>
+      </div>
     </div>
 
     <!-- 滚动内容区域 -->
@@ -429,22 +425,18 @@ onUnmounted(() => {
 }
 
 /* 页面标题卡片样式 */
-.header-card {
-  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-  border-radius: 12px;
-}
+.dm-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; }
+.dm-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
+.dm-title-group { display: flex; align-items: center; gap: 12px; }
+.dm-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.dm-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
+.dm-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
+.dm-header-actions { display: flex; gap: 8px; }
 
-.page-header {
-  z-index: 10;
-}
-
-.page-header h1 {
-  margin: 0;
-}
-
-.page-header p {
-  margin: 4px 0 0;
-}
+.dm-btn { display: inline-flex; align-items: center; gap: 5px; border: none; border-radius: 8px; font-size: 13px; font-weight: 500; cursor: pointer; padding: 7px 14px; transition: all 0.15s ease; }
+.dm-btn-ghost { background: transparent; color: #505050; border: 1px solid #d1d5db; }
+.dm-btn-ghost:hover { background: #f0f0f0; }
+.dm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .device-grid {
   display: grid;
