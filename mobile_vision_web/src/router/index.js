@@ -14,7 +14,6 @@ import YoloTraining from '@/views/YoloTraining.vue'
 import YoloAnnotation from '@/views/YoloAnnotation.vue'
 import DeviceManager from '@/views/DeviceManager.vue'
 import LLMCredential from '@/views/LLMCredential.vue'
-import TaskExecutionMonitor from '@/views/TaskExecutionMonitor.vue'
 import TestPlanManagement from '@/views/TestPlanManagement.vue'
 import TestTaskList from '@/views/TestTaskList.vue'
 import JobMonitor from '@/views/JobMonitor.vue'
@@ -166,13 +165,6 @@ const routes = [
         props: true
       }
     ]
-  },
-  {
-    path: '/testtasks/:taskId/monitor',
-    name: 'TaskExecutionMonitor',
-    component: TaskExecutionMonitor,
-    meta: {requiresAuth: true},
-    props: true
   },
   {
     path: '/testjobs/:jobId/monitor',
