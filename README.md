@@ -401,6 +401,14 @@ mobile_vision/
 
 ---
 
+## 💬 交流群
+
+<p align="center">
+  <img src="docs/%E5%BE%AE%E4%BF%A1%E7%BE%A4%E4%BA%8C%E7%BB%B4%E7%A0%81.png" width="280" alt="微信群二维码">
+</p>
+
+---
+
 ## 📄 License
 
 本项目仅供学习交流使用。
