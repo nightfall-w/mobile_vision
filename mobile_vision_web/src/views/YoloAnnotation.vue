@@ -691,7 +691,9 @@ const autoAnnotate = async () => {
         if (dataset.value && dataset.value.classes) {
           for (let i = 0; i < dataset.value.classes.length; i++) {
             const cls = dataset.value.classes[i]
-            const clsName = typeof cls === 'object' ? cls.english : cls
+            const clsName = typeof cls === 'object'
+              ? (cls.chinese || cls.english || String(cls))
+              : cls
             if (clsName === className) {
               classId = i
               break

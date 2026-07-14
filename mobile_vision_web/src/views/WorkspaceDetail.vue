@@ -12,8 +12,7 @@
           </div>
           <div class="wd-header-actions">
             <div class="workspace-info">
-              <span class="info-label">当前空间：</span>
-              <span class="info-value font-medium">{{ workspaceData.name }}</span>
+              <p class="info-text">当前空间：<span class="info-value font-medium">{{ workspaceData.name }}</span></p>
             </div>
             <el-tag size="small" class="manager-tag">
               <el-icon class="mr-1" :size="12"><User/></el-icon>
@@ -747,7 +746,7 @@ onMounted(() => {
 .wd-icon-wrap { width: 36px; height: 36px; border-radius: 10px; background: #eef2ff; color: #5b6ef7; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .wd-title { margin: 0; font-size: 17px; font-weight: 700; color: #1d1d1f; }
 .wd-subtitle { margin: 2px 0 0; font-size: 12px; color: #8e8e93; }
-.wd-header-actions { display: flex; gap: 8px; align-items: center; }
+.wd-header-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 
 .page-header-content {
   display: flex;
@@ -783,6 +782,12 @@ onMounted(() => {
 }
 
 .workspace-info {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.info-text {
+  margin: 0;
   font-size: 12px;
   color: #6b7280;
 }
