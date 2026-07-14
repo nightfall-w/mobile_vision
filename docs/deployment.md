@@ -2,13 +2,13 @@
 
 ## 环境要求
 
-| 组件 | 版本要求 |
-|------|----------|
-| Python | 3.10+ |
-| Node.js | 20+ |
-| MySQL | 8.0+ |
-| Redis | 6.x+（可选，任务队列用） |
-| ADB | 最新版（Android 设备控制） |
+| 组件      | 版本要求              |
+|---------|-------------------|
+| Python  | 3.10+             |
+| Node.js | 20+               |
+| MySQL   | 8.0+              |
+| Redis   | 6.x+（可选，任务队列用）    |
+| ADB     | 最新版（Android 设备控制） |
 
 ---
 
@@ -55,39 +55,39 @@ python db/__init__.py
 cp .env.example .env
 ```
 
-按需修改 `.env`：
+按需修改 `.env`，按照你的环境进行配置，但是DB_NAME不要修改：
 
 ```ini
 # 数据库配置
-DB_USER=root
-DB_PASSWORD=your_password
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=mobile_vision
+DB_USER = root
+DB_PASSWORD = your_password
+DB_HOST = 127.0.0.1
+DB_PORT = 3306
+DB_NAME = mobile_vision
 
 # Redis 配置
-REDIS_HOST=127.0.0.1
-REDIS_PORT=6379
-REDIS_PASSWORD=
+REDIS_HOST = 127.0.0.1
+REDIS_PORT = 6379
+REDIS_PASSWORD =
 
-# 访问令牌有效期（分钟）
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+# 登录后访问令牌有效期（分钟）
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 ```
 
 **环境变量说明：**
 
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| `DB_USER` | 数据库用户名 | root |
-| `DB_PASSWORD` | 数据库密码 | root1234 |
-| `DB_HOST` | 数据库主机 | 127.0.0.1 |
-| `DB_PORT` | 数据库端口 | 3306 |
-| `DB_NAME` | 数据库名 | mobile_vision |
-| `REDIS_HOST` | Redis 主机 | 127.0.0.1 |
-| `REDIS_PORT` | Redis 端口 | 6379 |
-| `REDIS_PASSWORD` | Redis 密码 | (空) |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT Token 有效期（分钟） | 1440 |
+| 变量                            | 说明                | 默认值           |
+|-------------------------------|-------------------|---------------|
+| `DB_USER`                     | 数据库用户名            | root          |
+| `DB_PASSWORD`                 | 数据库密码             | root1234      |
+| `DB_HOST`                     | 数据库主机             | 127.0.0.1     |
+| `DB_PORT`                     | 数据库端口             | 3306          |
+| `DB_NAME`                     | 数据库名（不可修改）        | mobile_vision |
+| `REDIS_HOST`                  | Redis 主机          | 127.0.0.1     |
+| `REDIS_PORT`                  | Redis 端口          | 6379          |
+| `REDIS_PASSWORD`              | Redis 密码          | (空)           |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT Token 有效期（分钟） | 1440          |
 
 ### 3.2 启动服务
 
@@ -165,7 +165,7 @@ server {
     listen 80;
     server_name your-domain.com;
 
-    # 前端静态文件
+    # 前端静态文件 下方/path/to换成你部署项目的实际路径
     root /path/to/mobile_vision/mobile_vision_web/dist;
     index index.html;
 
@@ -238,10 +238,11 @@ adb devices
 ## 6. 验证部署
 
 1. 打开 `http://your-server-ip`（或 Nginx 配置的域名）
-2. 使用 `.env` 中配置的管理员账号登录
+2. **登录页面** 注册账号并登录
 3. 进入 **设备管理** 页面确认设备在线
 4. 进入 **LLM 配置** 页面添加大模型 API Key
-5. 创建一个简单的测试用例并执行，验证端到端流程
+5. 上传你的app的截图到数据集，完成YOLO模型训练（如果直接使用automator2识别DOM能够满足需求，可以先跳过这一步）
+6. 创建一个简单的测试用例并执行，验证端到端流程
 
 ---
 
@@ -252,25 +253,25 @@ adb devices
 ```ini
 # /etc/supervisor/conf.d/mobile_vision_api.conf
 [program:mobile_vision_api]
-command=/path/to/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080 --workers 4
-directory=/path/to/mobile_vision
-user=deploy
-autostart=true
-autorestart=true
-stdout_logfile=/var/log/mobile_vision_api.log
-stderr_logfile=/var/log/mobile_vision_api.err
+command = /path/to/venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080 --workers 4
+directory = /path/to/mobile_vision
+user = deploy
+autostart = true
+autorestart = true
+stdout_logfile = /var/log/mobile_vision_api.log
+stderr_logfile = /var/log/mobile_vision_api.err
 ```
 
 ```ini
 # /etc/supervisor/conf.d/mobile_vision_consumer.conf
 [program:mobile_vision_consumer]
-command=/path/to/venv/bin/python funboost_cli_user.py consume all
-directory=/path/to/mobile_vision
-user=deploy
-autostart=true
-autorestart=true
-stdout_logfile=/var/log/mobile_vision_consumer.log
-stderr_logfile=/var/log/mobile_vision_consumer.err
+command = /path/to/venv/bin/python funboost_cli_user.py consume all
+directory = /path/to/mobile_vision
+user = deploy
+autostart = true
+autorestart = true
+stdout_logfile = /var/log/mobile_vision_consumer.log
+stderr_logfile = /var/log/mobile_vision_consumer.err
 ```
 
 ---
