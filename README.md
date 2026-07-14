@@ -408,5 +408,5 @@ mobile_vision/
 ---
 
 <p align="center">
-  <sub>Built with ❤️ by baojun.wang</sub>
+  <sub>Built with ❤️ by baojun.wang · rimuli_w@163.com</sub>
 </p>
