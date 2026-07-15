@@ -84,6 +84,9 @@ class AndroidInterface:
             return elements, True
         except Exception as e:
             logger.warning(f"DOM 获取失败: {e}")
+            if "DeadSystemException" in str(e):
+                logger.warning("检测到 DeadSystemException（系统服务崩溃），标记 uiautomator2 为不可用")
+                self._u2 = None
             return [], False
 
     def _flatten_xml_node(self, node: ET.Element, output: List[Dict],

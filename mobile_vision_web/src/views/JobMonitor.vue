@@ -844,7 +844,7 @@ watch(currentScreenshot, (newVal) => {
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
-  margin-bottom: 12px;
+  margin-bottom: 6px;
   transition: box-shadow 0.3s ease;
 }
 
@@ -989,7 +989,7 @@ watch(currentScreenshot, (newVal) => {
   flex-direction: column;
   gap: 16px;
   overflow: hidden;
-  height: calc(100vh - 140px);
+  height: calc(100vh - 100px);
 }
 
 .screenshot-card {
