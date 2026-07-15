@@ -76,6 +76,7 @@ class YOLOTrainer:
             imgsz: int = 640,
             device: str = "cpu",
             cancel_check_callback=None,
+            progress_callback=None,
             **kwargs,
     ) -> Dict[str, Any]:
         if data_path is None and (images_dir is None or labels_dir is None):
@@ -86,17 +87,22 @@ class YOLOTrainer:
         if data_path is None:
             data_path = self._generate_data_yaml(images_dir, labels_dir)
 
-        class CancelCallback:
-            def __init__(self, callback):
-                self.callback = callback
+        class EpochCallback:
+            def __init__(self, cancel_callback, progress_callback=None, total_epochs=None):
+                self.cancel_callback = cancel_callback
+                self.progress_callback = progress_callback
+                self.total_epochs = total_epochs
 
             def on_epoch_end(self, trainer):
-                if self.callback and self.callback():
+                if self.cancel_callback and self.cancel_callback():
                     raise TaskCancelledException("训练任务已被取消")
+                if self.progress_callback:
+                    current = getattr(trainer, 'epoch', 0) + 1
+                    total = getattr(trainer, 'epochs', self.total_epochs or 100)
+                    self.progress_callback(current, total)
 
         callbacks = kwargs.pop('callbacks', [])
-        if cancel_check_callback:
-            callbacks.append(CancelCallback(cancel_check_callback))
+        callbacks.append(EpochCallback(cancel_check_callback, progress_callback, epochs))
 
         for cb in callbacks:
             # CancelCallback has on_epoch_end; register it for the matching event

@@ -113,9 +113,15 @@ def train_yolo_model(task_data: dict):
         trainer = YOLOTrainer(model_name=model_path)
 
         try:
+            total_epochs = config.get('epochs', 100)
+
+            def _on_epoch_progress(current: int, total: int):
+                progress = round(current / total * 100, 1)
+                update_task(task_id, progress=progress, current_epoch=current)
+
             results = trainer.train(
                 data_path=yaml_path,
-                epochs=config.get('epochs', 100),
+                epochs=total_epochs,
                 batch_size=config.get('batch_size', 8),
                 imgsz=config.get('imgsz', 640),
                 device=config.get('device', 'cpu'),
@@ -123,13 +129,13 @@ def train_yolo_model(task_data: dict):
                 max_det=300,
                 resume=continue_from_last_pt,
                 cancel_check_callback=lambda: check_cancel_signal(task_id, namespace="yolo_train"),
+                progress_callback=_on_epoch_progress,
             )
         except TaskCancelledException:
             print(f"[FunBoost] 任务 {task_id}: 训练任务已被用户取消")
             update_task(
                 task_id,
                 status=TaskStatus.ABORTED.value,
-                progress=task.get('progress', 0),
                 error_message="任务已被用户取消"
             )
             return

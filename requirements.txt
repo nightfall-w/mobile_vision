@@ -27,4 +27,3 @@ starlette>=1.0.0
 fire>=0.7.1
 aiomysql>=0.2.0
 uiautomator2>=3.0.0
--e git+ssh://git@github.com/nightfall-w/mobile_vision.git@27a57bbd1de63cb9cc1d304e77f7a1fb25dfc867#egg=automation_agent
