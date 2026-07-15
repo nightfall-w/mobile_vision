@@ -63,10 +63,166 @@
 >
 > Agent 在执行过程中，通过**双通道策略**获取当前页面的结构化描述：
 > - **DOM 快通道（uiautomator2）** — 通过 uiautomator2 dump 页面控件树，0.3-0.8s 内获取完整的 XML 视图层级，提取每个元素的类型、文本、坐标、交互状态（clickable/enabled/checked 等），是最优先使用的通道
-> - **视觉通道（YOLO + OCR）** — 当页面包含大量 WebView 或 DOM 信息不足时，自动切换至视觉通道：YOLO 模型识别可交互元素类型与位置，OCR 提取文字内容，大津法分析文字颜色
+> - **视觉通道（YOLO + OCR）** — 当页面包含大量 WebView 或 DOM 信息不足时，自动切换至视觉通道，完成三项分析：
+>   - **YOLO 目标检测** — 识别可交互元素类型与位置
+>   - **OCR 文字识别** — 提取元素上的文字内容
+>   - **大津法颜色分析** — 分析文字颜色，辅助判断交互状态
+>
+> 下图是 YOLO 模型对小程序页面的实际检测效果——搜索框、活动弹窗、关闭小程序按钮等元素被准确框出：
+> 
+> ![YOLO 模型识别效果](docs/YOLO%E6%A8%A1%E5%9E%8B%E8%AF%86%E5%88%AB%E6%95%88%E6%9E%9C.png)
 > - 最终融合生成 **JSON 格式的结构化页面树**，精确还原当前页面的 UI 布局结构与交互元素
 >
 > 这份结构化的页面描述替代了传统"截图给多模态大模型"的方式，使 Agent 能够以极低的 Token 成本准确理解页面状态，为后续操作决策提供可靠依据。
+
+经过 YOLO 识别、OCR 提取与颜色分析后，页面元素被输出为结构化 JSON 交给 LLM 决策——以电商小程序首页弹出活动弹窗为例：
+
+```json
+{
+  "page_width": 720,
+  "page_height": 1560,
+  "elements": [
+    {
+      "id": "elem_2",
+      "type": "关闭小程序按钮",
+      "bbox": [643, 61, 685, 102],
+      "bbox_center": { "center_x": 664, "center_y": 81 },
+      "confidence": 0.93
+    },
+    {
+      "id": "elem_4",
+      "type": "搜索Icon",
+      "bbox": [41, 63, 84, 107],
+      "bbox_center": { "center_x": 62, "center_y": 85 },
+      "confidence": 0.78
+    },
+    {
+      "id": "text_4",
+      "type": "text_block",
+      "bbox": [230, 69, 490, 103],
+      "bbox_center": { "center_x": 360, "center_y": 86 },
+      "text": "松山棉店官方商城",
+      "color": "dark_gray",
+      "color_brightness": 77.0,
+      "confidence": 0.83
+    },
+    {
+      "id": "elem_0",
+      "type": "活动弹窗",
+      "bbox": [124, 339, 598, 1163],
+      "bbox_center": { "center_x": 361, "center_y": 751 },
+      "confidence": 0.96,
+      "children": [
+        {
+          "id": "text_10",
+          "type": "text_block",
+          "bbox": [205, 439, 519, 495],
+          "bbox_center": { "center_x": 362, "center_y": 467 },
+          "text": "周二会员日",
+          "color": "dark_green",
+          "color_brightness": 60.0,
+          "confidence": 0.77
+        },
+        {
+          "id": "text_18",
+          "type": "text_block",
+          "bbox": [291, 960, 425, 989],
+          "bbox_center": { "center_x": 358, "center_y": 974 },
+          "text": "限时秒杀>",
+          "color": "white",
+          "color_brightness": 255.0,
+          "confidence": 0.71
+        },
+        {
+          "id": "elem_5",
+          "type": "关闭按钮Icon",
+          "bbox": [334, 1102, 386, 1155],
+          "bbox_center": { "center_x": 360, "center_y": 1128 },
+          "confidence": 0.92
+        }
+      ]
+    },
+    {
+      "id": "elem_6",
+      "type": "按钮",
+      "bbox": [35, 1354, 106, 1435],
+      "bbox_center": { "center_x": 71, "center_y": 1395 },
+      "confidence": 0.54,
+      "children": [
+        {
+          "id": "text_29",
+          "type": "text_block",
+          "bbox": [53, 1408, 92, 1430],
+          "bbox_center": { "center_x": 72, "center_y": 1419 },
+          "text": "主页",
+          "color": "green",
+          "color_brightness": 127.5,
+          "confidence": 0.67
+        }
+      ]
+    },
+    {
+      "id": "elem_7",
+      "type": "按钮",
+      "bbox": [181, 1353, 248, 1436],
+      "bbox_center": { "center_x": 215, "center_y": 1394 },
+      "confidence": 0.81,
+      "children": [
+        {
+          "id": "text_30",
+          "type": "text_block",
+          "bbox": [196, 1408, 236, 1431],
+          "bbox_center": { "center_x": 216, "center_y": 1419 },
+          "text": "分类",
+          "color": "light_gray",
+          "color_brightness": 193.0,
+          "confidence": 0.66
+        }
+      ]
+    },
+    {
+      "id": "elem_8",
+      "type": "按钮",
+      "bbox": [464, 1351, 544, 1433],
+      "bbox_center": { "center_x": 504, "center_y": 1392 },
+      "confidence": 0.82,
+      "children": [
+        {
+          "id": "text_31",
+          "type": "text_block",
+          "bbox": [475, 1407, 533, 1431],
+          "bbox_center": { "center_x": 504, "center_y": 1419 },
+          "text": "购物车",
+          "color": "light_gray",
+          "color_brightness": 196.0,
+          "confidence": 0.65
+        }
+      ]
+    },
+    {
+      "id": "elem_9",
+      "type": "按钮",
+      "bbox": [610, 1354, 681, 1437],
+      "bbox_center": { "center_x": 646, "center_y": 1396 },
+      "confidence": 0.71,
+      "children": [
+        {
+          "id": "text_32",
+          "type": "text_block",
+          "bbox": [627, 1408, 668, 1430],
+          "bbox_center": { "center_x": 647, "center_y": 1419 },
+          "text": "我的",
+          "color": "light_gray",
+          "color_brightness": 192.0,
+          "confidence": 0.63
+        }
+      ]
+    }
+  ]
+}
+```
+
+LLM 拿着这份数据，知道页面上有一个活动弹窗，弹窗里"周二会员日"是深绿色标题、"限时秒杀>"是白色促销文字，底部有关闭按钮；底部导航四个按钮中"主页"是绿色高亮，其余为灰色未选中。这些信息**不需要从像素里猜测，而是通过结构化提取得到的**。
 
 ### 核心优势：结构化页面解析 vs 传统截图多模态方案
 
@@ -401,7 +557,7 @@ mobile_vision/
 
 ---
 
-## 💬 交流群
+## 💬 微信交流群
 
 <p align="center">
   <img src="docs/%E5%BE%AE%E4%BF%A1%E7%BE%A4%E4%BA%8C%E7%BB%B4%E7%A0%81.png" width="280" alt="微信群二维码">
