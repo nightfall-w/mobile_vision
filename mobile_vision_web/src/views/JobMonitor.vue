@@ -790,7 +790,7 @@ watch(currentScreenshot, (newVal) => {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: 12px 12px;
+  padding: 6px 12px;
   background: linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%);
   overflow: hidden;
 }
@@ -987,7 +987,7 @@ watch(currentScreenshot, (newVal) => {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   overflow: hidden;
   height: calc(100vh - 100px);
 }
@@ -1076,7 +1076,7 @@ watch(currentScreenshot, (newVal) => {
 }
 
 :deep(.el-card__header) {
-  padding: 14px 18px;
+  padding: 12px 15px;
   border-bottom: 1px solid #f0f2f5;
   background: linear-gradient(135deg, #fafbfc 0%, #ffffff 100%);
   border-radius: 16px 16px 0 0 !important;
