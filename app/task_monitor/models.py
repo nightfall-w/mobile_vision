@@ -93,6 +93,7 @@ class TaskExecutionState:
     total_steps: int = 0
     success_steps: int = 0
     failed_steps: int = 0
+    error_message: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -108,7 +109,8 @@ class TaskExecutionState:
             "last_update": self.last_update,
             "total_steps": self.total_steps,
             "success_steps": self.success_steps,
-            "failed_steps": self.failed_steps
+            "failed_steps": self.failed_steps,
+            "error_message": self.error_message
         }
 
     @classmethod
@@ -138,7 +140,8 @@ class TaskExecutionState:
             last_update=data.get("last_update", ""),
             total_steps=data.get("total_steps", 0),
             success_steps=data.get("success_steps", 0),
-            failed_steps=data.get("failed_steps", 0)
+            failed_steps=data.get("failed_steps", 0),
+            error_message=data.get("error_message", "")
         )
 
 

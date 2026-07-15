@@ -562,7 +562,9 @@ def execute_test_task(task_data: dict):
                 job.end_time = datetime.now()
                 job.duration = duration_seconds
                 execution_state.status = TaskStatus.FAILED
+                execution_state.error_message = str(e)
                 store.update_state(job_id, execution_state)
+                store.add_log(job_id, "ERROR", f"任务执行异常: {str(e)}")
                 print(f"[FunBoost] Job {job_id} 执行异常: {e}")
                 import traceback
 
