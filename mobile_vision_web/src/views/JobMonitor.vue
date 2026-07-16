@@ -18,6 +18,14 @@
               <el-icon><Monitor /></el-icon>
               {{ jobDetail.device_name || '-' }}
             </span>
+            <span class="meta-item" v-if="jobDetail.llm_name">
+              <el-icon><Cpu /></el-icon>
+              {{ jobDetail.llm_name }}
+            </span>
+            <span class="meta-item" v-if="jobDetail.reasoning_effort">
+              <el-icon><TrendCharts /></el-icon>
+              推理强度: {{ jobDetail.reasoning_effort }}
+            </span>
           </div>
         </div>
       </div>
@@ -258,7 +266,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, Aim, Location, View, Close } from '@element-plus/icons-vue'
+import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, Aim, Location, View, Close, Cpu } from '@element-plus/icons-vue'
 import axios from '../network/axios'
 import { abortTestJob } from '../network/api'
 import PageStructureViewer from '../components/PageStructureViewer.vue'
@@ -271,7 +279,9 @@ const jobDetail = ref({
   case_name: '',
   device_name: '',
   status: 'pending',
-  result: ''
+  result: '',
+  llm_name: '',
+  reasoning_effort: ''
 })
 const taskState = ref({
   task_id: jobId.value,
@@ -663,7 +673,9 @@ const fetchJobDetail = async () => {
         case_name: res.data.case_name || '',
         device_name: res.data.device_name || '',
         status: status,
-        result: res.data.result
+        result: res.data.result,
+        llm_name: res.data.llm_name || '',
+        reasoning_effort: res.data.reasoning_effort || ''
       }
       if (res.data.start_time) {
         startTime = new Date(res.data.start_time).getTime()
