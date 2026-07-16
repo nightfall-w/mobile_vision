@@ -478,61 +478,46 @@ class PageElementRecognizer:
             if x2 <= x1 or y2 <= y1:
                 return {'color': 'unknown', 'brightness': 0.0}
 
-            roi = img_array[y1:y2, x1:x2]
+            # 外扩边距，让边缘区域有真正的背景像素
+            padding = max(6, min((y2 - y1) // 5, (x2 - x1) // 5))
+            pad_x1 = max(0, x1 - padding)
+            pad_y1 = max(0, y1 - padding)
+            pad_x2 = min(img.width, x2 + padding)
+            pad_y2 = min(img.height, y2 + padding)
+
+            roi = img_array[pad_y1:pad_y2, pad_x1:pad_x2]
             h, w = roi.shape[:2]
 
-            # 超小元素直接去ROI中心像素的RGB值
+            # 超小元素直接取ROI中心像素的RGB值
             if h < 3 or w < 3:
                 center_color = roi[h // 2, w // 2]
                 r, g, b = int(center_color[0]), int(center_color[1]), int(center_color[2])
                 brightness = (r + g + b) / 3
                 return self._classify_color(r, g, b, brightness)
 
-            # 步骤1：大津法二值化
-            gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
-            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # 步骤1：采样外扩区域的四个角作为背景色参考
+            # 角落距离文字最远，几乎不可能是文字笔画
+            corner_px = 2
+            corners = [
+                roi[:corner_px, :corner_px],       # 左上
+                roi[:corner_px, -corner_px:],      # 右上
+                roi[-corner_px:, :corner_px],      # 左下
+                roi[-corner_px:, -corner_px:],     # 右下
+            ]
+            corner_pixels = np.concatenate([c.reshape(-1, 3) for c in corners])
+            bg_color = np.median(corner_pixels, axis=0).astype(float)
 
-            # 前景（白色区域）和背景（黑色区域）
-            fg_mask = (binary == 255)
-            bg_mask = (binary == 0)
+            # 步骤2：在ROI内找与背景显著不同的像素作为文字
+            diff = np.abs(roi.astype(float) - bg_color.reshape(1, 1, 3))
+            max_diff = np.max(diff, axis=2)
+            text_mask = max_diff > 25
+            text_pixels = roi[text_mask]
 
-            fg_pixels = roi[fg_mask]
-            bg_pixels = roi[bg_mask]
-
-            # 步骤2：核心原则 - 文字通常是面积较小的那一类
-            # 因为文字笔画占整个边界框的比例通常 < 50%
-            if len(fg_pixels) == 0 or len(bg_pixels) == 0:
-                # 单一颜色，直接返回
-                median_color = np.median(roi, axis=(0, 1))
-                r, g, b = int(median_color[0]), int(median_color[1]), int(median_color[2])
-                brightness = (r + g + b) / 3
-                return self._classify_color(r, g, b, brightness)
-
-            # 面积较小的作为文字像素
-            if len(fg_pixels) < len(bg_pixels):
-                text_pixels = fg_pixels
-            else:
-                text_pixels = bg_pixels
-
-            # 步骤3：但如果面积较小的像素亮度极低且饱和度也低，
-            # 可能只是边框阴影，此时取面积较大的作为文字（兜底）
             if len(text_pixels) > 0:
-                text_brightness = np.mean(text_pixels) / 255.0
-                text_saturation = self._calculate_saturation(text_pixels)
-
-                # 如果提取的文字太暗且饱和度低，可能是误提取的背景杂质
-                if text_brightness < 0.15 and text_saturation < 0.1:
-                    # 改为取面积较大的作为文字
-                    if len(fg_pixels) > len(bg_pixels):
-                        text_pixels = fg_pixels
-                    else:
-                        text_pixels = bg_pixels
-
-            # 步骤4：提取文字颜色
-            if len(text_pixels) == 0:
-                median_color = np.median(roi, axis=(0, 1))
-            else:
                 median_color = np.median(text_pixels, axis=0)
+            else:
+                # 没有文字像素（如单色文字），直接取整个ROI的中值色
+                median_color = np.median(roi, axis=(0, 1))
 
             r, g, b = int(median_color[0]), int(median_color[1]), int(median_color[2])
             brightness = (r + g + b) / 3
@@ -558,10 +543,10 @@ class PageElementRecognizer:
 
     def _classify_color(self, r: int, g: int, b: int, brightness: float) -> dict:
         """颜色分类（保持原有逻辑）"""
-        # 极黑/极白
-        if brightness < 45:
+# 极黑/极白
+        if brightness < 30:
             return {'color': 'black', 'brightness': brightness}
-        elif brightness > 225:
+        elif brightness > 240:
             return {'color': 'white', 'brightness': brightness}
 
         # 计算饱和度
@@ -569,30 +554,83 @@ class PageElementRecognizer:
         min_val = min(r, g, b)
         saturation = max_val - min_val
 
-        # 低饱和度 -> 灰色
-        if saturation < 35:
+        # 低饱和度 → 灰度分级
+        if saturation < 20:
+            if brightness < 50:
+                return {'color': 'black', 'brightness': brightness}
+            elif brightness < 90:
+                return {'color': 'dark_gray', 'brightness': brightness}
+            elif brightness < 145:
+                return {'color': 'gray', 'brightness': brightness}
+            elif brightness < 195:
+                return {'color': 'light_gray', 'brightness': brightness}
+            else:
+                return {'color': 'off_white', 'brightness': brightness}
+
+        # 灰度稍高的灰色（20~45）
+        if saturation < 45:
             if brightness < 100:
                 return {'color': 'dark_gray', 'brightness': brightness}
-            elif brightness > 180:
+            elif brightness > 185:
                 return {'color': 'light_gray', 'brightness': brightness}
             else:
                 return {'color': 'gray', 'brightness': brightness}
 
-        # 彩色判断
-        if r > g + 35 and r > b + 35:
-            return {'color': 'red', 'brightness': brightness}
-        elif g > r + 35 and g > b + 35:
-            return {'color': 'green', 'brightness': brightness}
-        elif b > r + 35 and b > g + 35:
-            return {'color': 'blue', 'brightness': brightness}
-        elif r > 180 and g > 150 and b < 120:
-            return {'color': 'orange', 'brightness': brightness}
-        elif r > 200 and g > 180 and b < 130:
-            return {'color': 'yellow', 'brightness': brightness}
+        # 彩色主色判断
+        if r > g + 40 and r > b + 40:
+            if brightness < 80:
+                return {'color': 'dark_red', 'brightness': brightness}
+            elif brightness > 210:
+                return {'color': 'light_red', 'brightness': brightness}
+            else:
+                return {'color': 'red', 'brightness': brightness}
+        elif g > r + 40 and g > b + 40:
+            if brightness < 80:
+                return {'color': 'dark_green', 'brightness': brightness}
+            elif brightness > 210:
+                return {'color': 'light_green', 'brightness': brightness}
+            else:
+                return {'color': 'green', 'brightness': brightness}
+        elif b > r + 40 and b > g + 40:
+            if brightness < 80:
+                return {'color': 'dark_blue', 'brightness': brightness}
+            elif brightness > 210:
+                return {'color': 'light_blue', 'brightness': brightness}
+            else:
+                return {'color': 'blue', 'brightness': brightness}
+
+        # 混合色：橙色
+        if r > 150 and g > 100 and r > g + 20 and b < r * 0.7:
+            if brightness < 120:
+                return {'color': 'brown', 'brightness': brightness}
+            elif brightness > 200:
+                return {'color': 'light_orange', 'brightness': brightness}
+            else:
+                return {'color': 'orange', 'brightness': brightness}
+
+        # 混合色：黄色
+        if r > 170 and g > 150 and r - b > 60:
+            if brightness < 140:
+                return {'color': 'dark_yellow', 'brightness': brightness}
+            else:
+                return {'color': 'yellow', 'brightness': brightness}
+
+        # 混合色：紫色（红蓝混合）
+        if b > g and r > g + 15 and abs(r - b) < 60 and max_val > 90:
+            if brightness < 110:
+                return {'color': 'dark_purple', 'brightness': brightness}
+            else:
+                return {'color': 'purple', 'brightness': brightness}
+
+        # 混合色：青色（蓝绿混合）
+        if b > r and g > r + 15 and abs(g - b) < 60 and max_val > 90:
+            return {'color': 'cyan', 'brightness': brightness}
 
         # 兜底
-        if brightness < 100:
+        if brightness < 80:
             return {'color': 'dark', 'brightness': brightness}
+        elif brightness < 170:
+            return {'color': 'neutral', 'brightness': brightness}
         else:
             return {'color': 'light', 'brightness': brightness}
 
