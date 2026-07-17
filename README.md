@@ -369,7 +369,7 @@ LLM 拿着这份数据，知道页面上有一个活动弹窗，弹窗里"周二
 
 ```bash
 # 1. 克隆并安装后端依赖
-git clone https://github.com/yourusername/mobile_vision.git
+git clone https://github.com/nightfall-w/mobile_vision.git
 cd mobile_vision
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
