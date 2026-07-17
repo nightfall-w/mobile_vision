@@ -386,7 +386,7 @@ class PageElementRecognizer:
                 y2=float(y2)
             )
 
-            color_info = self._analyze_text_color(image_path, bbox_coords)
+            color_info = self._analyze_text_color(image_path, bbox_coords, text=text.strip())
 
             text_element = TextElement(
                 text_id=f"text_{idx}",
@@ -437,7 +437,7 @@ class PageElementRecognizer:
 
             bbox = BoundingBox(x1=x1, y1=y1, x2=x2, y2=y2)
 
-            color_info = self._analyze_text_color(image_path, bbox_coords)
+            color_info = self._analyze_text_color(image_path, bbox_coords, text=text.strip())
 
             text_element = TextElement(
                 text_id=f"text_{idx}",
@@ -461,7 +461,7 @@ class PageElementRecognizer:
             return "ch_sim"
         return "en"
 
-    def _analyze_text_color(self, image_path: str, bbox_coords: list) -> dict:
+    def _analyze_text_color(self, image_path: str, bbox_coords: list, text: str = "") -> dict:
         """通用文字颜色分析"""
         try:
             img = Image.open(image_path).convert('RGB')
@@ -478,55 +478,93 @@ class PageElementRecognizer:
             if x2 <= x1 or y2 <= y1:
                 return {'color': 'unknown', 'brightness': 0.0}
 
-            # 外扩边距，让边缘区域有真正的背景像素
-            padding = max(6, min((y2 - y1) // 5, (x2 - x1) // 5))
-            pad_x1 = max(0, x1 - padding)
-            pad_y1 = max(0, y1 - padding)
-            pad_x2 = min(img.width, x2 + padding)
-            pad_y2 = min(img.height, y2 + padding)
+            # 外扩 bbox，确保 ROI 覆盖到文字像素
+            pad = max(5, min(int((y2 - y1) * 0.5), 30))
+            pad_x1 = max(0, x1 - pad)
+            pad_y1 = max(0, y1 - pad)
+            pad_x2 = min(img.width, x2 + pad)
+            pad_y2 = min(img.height, y2 + pad)
 
             roi = img_array[pad_y1:pad_y2, pad_x1:pad_x2]
-            h, w = roi.shape[:2]
+            rh, rw = roi.shape[:2]
 
-            # 超小元素直接取ROI中心像素的RGB值
-            if h < 3 or w < 3:
-                center_color = roi[h // 2, w // 2]
+            # 超小元素直接取中心像素
+            if rh < 3 or rw < 3:
+                center_color = roi[rh // 2, rw // 2]
                 r, g, b = int(center_color[0]), int(center_color[1]), int(center_color[2])
                 brightness = (r + g + b) / 3
                 return self._classify_color(r, g, b, brightness)
 
-            # 步骤1：采样外扩区域的四个角作为背景色参考
-            # 角落距离文字最远，几乎不可能是文字笔画
-            corner_px = 2
-            corners = [
-                roi[:corner_px, :corner_px],       # 左上
-                roi[:corner_px, -corner_px:],      # 右上
-                roi[-corner_px:, :corner_px],      # 左下
-                roi[-corner_px:, -corner_px:],     # 右下
-            ]
-            corner_pixels = np.concatenate([c.reshape(-1, 3) for c in corners])
-            bg_color = np.median(corner_pixels, axis=0).astype(float)
+            # K-means K=2 在外扩 ROI 像素上聚类
+            pixels_flat = roi.reshape(-1, 3).astype(np.float32)
+            _, labels, cluster_centers = cv2.kmeans(
+                pixels_flat, 2, None,
+                (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0),
+                5, cv2.KMEANS_PP_CENTERS
+            )
 
-            # 步骤2：在ROI内找与背景显著不同的像素作为文字
-            diff = np.abs(roi.astype(float) - bg_color.reshape(1, 1, 3))
-            max_diff = np.max(diff, axis=2)
-            text_mask = max_diff > 25
-            text_pixels = roi[text_mask]
+            color0 = cluster_centers[0].astype(float)
+            color1 = cluster_centers[1].astype(float)
 
-            if len(text_pixels) > 0:
-                median_color = np.median(text_pixels, axis=0)
+            # 哪个 cluster 离纯白 (255,255,255) 更远，哪个就是文字
+            white = np.array([255.0, 255.0, 255.0])
+            dist0 = np.sqrt(np.sum((color0 - white) ** 2))
+            dist1 = np.sqrt(np.sum((color1 - white) ** 2))
+
+            if dist1 > dist0:
+                median_color = color1  # color1 离白更远 = 文字
             else:
-                # 没有文字像素（如单色文字），直接取整个ROI的中值色
-                median_color = np.median(roi, axis=(0, 1))
+                median_color = color0  # color0 离白更远 = 文字
+
+            # Fallback: 当两个 cluster 都接近白色时，说明 K-means 无法区分
+            # 在 ROI 中直接找非白色像素取中值作为文字色
+            if dist0 < 30 and dist1 < 30:
+                # 找 ROI 中灰度 < 250 的像素
+                gray = cv2.cvtColor(roi, cv2.COLOR_RGB2GRAY)
+                non_white_mask = gray < 250
+                non_white_pixels = roi[non_white_mask]
+                if len(non_white_pixels) > 0:
+                    median_color = np.median(non_white_pixels, axis=0).astype(float)
+                    print(f"[颜色分析-非白像素] 文字='{text}', 非白像素数={len(non_white_pixels)}, "
+                          f"文字色=({int(median_color[0])},{int(median_color[1])},{int(median_color[2])})")
+                else:
+                    # 确实没有非白色像素，文字就是白色
+                    median_color = color0
 
             r, g, b = int(median_color[0]), int(median_color[1]), int(median_color[2])
             brightness = (r + g + b) / 3
 
-            return self._classify_color(r, g, b, brightness)
+            result = self._classify_color(r, g, b, brightness)
+            print(f"[颜色分析] 文字='{text}', 文字色=({r},{g},{b}) {result['color']}, "
+                  f"cluster0=({int(color0[0])},{int(color0[1])},{int(color0[2])}), cluster1=({int(color1[0])},{int(color1[1])},{int(color1[2])})")
+            return result
 
         except Exception as e:
             print(f"颜色分析失败: {e}")
             return {'color': 'unknown', 'brightness': 0.0}
+
+    def _classify_colored_rgb(self, r: int, g: int, b: int, brightness: float) -> dict:
+        """处理高亮度彩色文字"""
+        max_val = max(r, g, b)
+        min_val = min(r, g, b)
+        saturation = max_val - min_val
+        
+        if r > g + 30 and r > b + 30:
+            return {'color': 'red', 'brightness': brightness}
+        elif g > r + 30 and g > b + 30:
+            return {'color': 'green', 'brightness': brightness}
+        elif b > r + 30 and b > g + 30:
+            return {'color': 'blue', 'brightness': brightness}
+        elif r > 150 and g > 100 and r > g + 20 and b < r * 0.7:
+            return {'color': 'orange', 'brightness': brightness}
+        elif r > 170 and g > 150 and r - b > 60:
+            return {'color': 'yellow', 'brightness': brightness}
+        elif b > g and r > g + 15 and abs(r - b) < 60:
+            return {'color': 'purple', 'brightness': brightness}
+        elif b > r and g > r + 15 and abs(g - b) < 60:
+            return {'color': 'cyan', 'brightness': brightness}
+        else:
+            return {'color': 'light', 'brightness': brightness}
 
     def _calculate_saturation(self, pixels):
         """计算像素集合的平均饱和度"""
@@ -546,8 +584,12 @@ class PageElementRecognizer:
 # 极黑/极白
         if brightness < 30:
             return {'color': 'black', 'brightness': brightness}
-        elif brightness > 240:
+        elif brightness > 250:
+            # 亮度极高但有一定饱和度 -> 是亮色文字，不是白色
+            if max(r, g, b) - min(r, g, b) > 15:
+                return self._classify_colored_rgb(r, g, b, brightness)
             return {'color': 'white', 'brightness': brightness}
+
 
         # 计算饱和度
         max_val = max(r, g, b)
@@ -666,7 +708,7 @@ class PageElementRecognizer:
                     "width": elem["bbox"]["x2"] - elem["bbox"]["x1"],
                     "height": elem["bbox"]["y2"] - elem["bbox"]["y1"]
                 },
-                "confidence": elem["confidence"],
+                "confidence": round(elem["confidence"], 2),
                 "text": elem.get("text"),
                 "source": "yolo"
             })
@@ -686,7 +728,7 @@ class PageElementRecognizer:
                     "width": text["bbox"]["x2"] - text["bbox"]["x1"],
                     "height": text["bbox"]["y2"] - text["bbox"]["y1"]
                 },
-                "confidence": text["confidence"],
+                "confidence": round(text["confidence"], 2),
                 "language": text.get("language", "en"),
                 "source": "ocr"
             })
@@ -775,7 +817,7 @@ class PageElementRecognizer:
                     "center_x": int(bbox.get("center_x")),
                     "center_y": int(bbox.get("center_y"))
                 },
-                "confidence": item["raw"].get("confidence", 0) if item.get("raw") else 0
+                "confidence": round(item["raw"].get("confidence", 0), 2) if item.get("raw") else 0.0
             }
 
             # 添加文本内容（普通元素直接从text字段获取）

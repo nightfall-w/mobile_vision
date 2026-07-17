@@ -79,7 +79,9 @@ async def predict_image_api(
     
     temp_dir = DATA_STORAGE_ROOT / 'temp'
     temp_dir.mkdir(exist_ok=True)
-    safe_filename = os.path.basename(image.filename)
+    # 输出文件名加时间戳避免浏览器缓存导致跨请求图片覆盖
+    ext = os.path.splitext(image.filename)[1]
+    safe_filename = f"{int(time.time() * 1000)}{ext}"
     temp_img = temp_dir / safe_filename
     
     try:

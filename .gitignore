@@ -206,6 +206,7 @@ runs/
 outputs/
 models/yolo/
 data/yolo/
+!data/yolo/base_models/
 storage/
 
 mobile_vision_web/node_modules/
