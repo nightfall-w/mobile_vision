@@ -499,22 +499,31 @@ mobile_vision/
 
 | 表名 | 说明 |
 |------|------|
-| `user` | 用户信息 |
+| **用户与权限** ||
+| `users` | 用户信息 |
+| `super_admins` | 超级管理员 |
+| **工作空间** ||
 | `workspace` | 工作空间 |
 | `workspace_member` | 工作空间成员 |
 | `member_role` | 成员角色 |
-| `test_case` | 测试用例 |
-| `test_case_step` | 用例步骤 |
+| **测试管理** ||
+| `test_case` | 测试用例（步骤存于 `content` JSON 字段） |
 | `test_plan` | 测试计划 |
-| `test_plan_case` | 计划-用例关联 |
+| `plan_case_relation` | 计划-用例关联 |
 | `test_task` | 测试任务 |
 | `test_job` | 测试任务执行单元 |
-| `device` | Android 设备 |
-| `llm_config` | LLM 配置 |
-| `yolo_dataset` | YOLO 数据集 |
-| `yolo_annotation` | YOLO 标注 |
-| `yolo_train_task` | YOLO 训练任务 |
-| `yolo_model` | YOLO 模型 |
+| **设备** ||
+| `android_devices` | Android 设备 |
+| `device_lock` | 设备锁（设备队列排队） |
+| **LLM** ||
+| `llm_credential` | LLM 凭证 |
+| **YOLO** ||
+| `yolo_datasets` | YOLO 数据集 |
+| `yolo_tasks` | YOLO 训练任务 |
+| `yolo_models` | YOLO 模型 |
+| **执行监控** ||
+| `task_execution_record` | 任务执行记录 |
+| `task_execution_log` | 任务执行日志 |
 
 ---
 
