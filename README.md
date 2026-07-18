@@ -395,17 +395,20 @@ npm install && npm run dev
 
 | 分组 | 路径 | 说明 |
 |------|------|------|
-| **认证** | `/api/v1/auth/*` | 登录、注册、Token 刷新 |
+| **用户** | `/api/v1/user/*` | 登录、注册、用户管理 |
 | **工作空间** | `/api/v1/workspace/*` | 空间 CRUD、成员管理、角色管理、统计 |
-| **测试用例** | `/api/v1/testcase/*` | 用例 CRUD、步骤管理 |
+| **测试用例** | `/api/v1/testcase/*` | 用例 CRUD |
 | **测试计划** | `/api/v1/testplan/*` | 计划 CRUD、用例关联 |
-| **测试任务** | `/api/v1/testtask/*` | 任务 CRUD、执行控制、进度查询 |
+| **测试任务** | `/api/v1/testtask/*` | 任务 CRUD、执行控制、进度查询、SSE 实时流 |
 | **设备管理** | `/api/v1/device/*` | 设备列表、状态、屏幕投射 |
-| **LLM 配置** | `/api/v1/llm/*` | 模型配置、API Key 管理 |
+| **LLM 配置** | `/api/v1/llm/credential/*` | 凭证 CRUD、连接测试 |
 | **YOLO 数据集** | `/api/v1/dataset/*` | 数据集 CRUD、文件上传 |
 | **YOLO 标注** | `/api/v1/annotation/*` | 标注管理、图片标注 |
-| **YOLO 训练** | `/api/v1/train/*` | 训练任务管理、模型管理 |
-| **实时监控** | `/ws/*` | WebSocket 日志推送 |
+| **YOLO 训练** | `/api/v1/train/*` | 训练任务管理 |
+| **YOLO 模型** | `/api/v1/model/*` | 模型列表、详情、预测 |
+| **执行监控** | `/api/v1/task/*` | 执行状态、日志查询 |
+| **SSE 实时流** | `/api/v1/testtask/*/stream` | Job / Task 状态实时推送 |
+| **健康检查** | `/api/v1/health` | 服务健康检查 |
 
 ---
 
