@@ -382,7 +382,10 @@ mysql -u root -p mobile_vision < scripts/init_database.sql
 # 3. 启动后端服务（开发模式）
 python main.py
 
-# 4. 启动前端（新终端）
+# 4. 启动异步任务消费服务（新终端，FunBoost 消费者）
+python funboost_cli_user.py
+
+# 5. 启动前端（新终端）
 cd mobile_vision_web
 npm install && npm run dev
 ```
