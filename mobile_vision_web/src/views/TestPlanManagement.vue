@@ -1001,9 +1001,20 @@ const batchAddCases = async () => {
   const llmId = batchLLMId.value || (llmOptions.value[0]?.id)
   const yoloId = batchYOLOId.value || (yoloOptions.value[0]?.id)
 
-  if (!llmId || !yoloId) {
-    ElMessage.error('LLM和YOLO模型未加载完成')
+  if (!llmId) {
+    ElMessage.error('LLM模型未加载完成')
     return
+  }
+  if (!yoloId) {
+    try {
+      await ElMessageBox.confirm(
+        'YOLO模型未选择，在小程序或H5页面中将不能识别页面元素信息，是否继续？',
+        '提示',
+        { confirmButtonText: '继续', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
+    }
   }
 
   try {
@@ -1085,6 +1096,17 @@ const openEditRelationDialog = (row) => {
 }
 
 const confirmEditRelation = async () => {
+  if (!editRelationForm.yolo_model_id) {
+    try {
+      await ElMessageBox.confirm(
+        'YOLO模型未选择，在小程序或H5页面中将不能识别页面元素信息，是否继续？',
+        '提示',
+        { confirmButtonText: '继续', cancelButtonText: '取消', type: 'warning' }
+      )
+    } catch {
+      return
+    }
+  }
   try {
     const params = { id: editRelationForm.id }
     if (editRelationForm.device_id !== undefined) params.device_id = editRelationForm.device_id

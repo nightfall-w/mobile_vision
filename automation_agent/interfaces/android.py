@@ -292,7 +292,100 @@ class AndroidInterface:
         self.page_hash = self._hash_file(screenshot_path)
 
         if not self._recognizer:
-            raise Exception("未找到可用的页面识别器")
+            logger.info("【视觉通道】YOLO 模型未配置，仅使用 OCR 识别文字")
+            # OCR-only: 直接用 EasyOCR 识别文字，跳过 YOLO
+            import cv2
+            import numpy as np
+            from PIL import Image
+            from automation_agent.page_recognizer import BoundingBox, TextElement
+            from dataclasses import asdict
+
+            page_id = f"ocr_only_{int(time.time() * 1000)}"
+            img = Image.open(screenshot_path)
+            img_array = np.array(img)
+            ocr_texts = []
+
+            # 初始化临时 OCR reader
+            temp_reader = None
+            try:
+                if self.ocr_engine == "easyocr":
+                    import easyocr
+                    temp_reader = easyocr.Reader(['en', 'ch_sim'], verbose=False)
+                else:
+                    from rapidocr_onnxruntime import RapidOCR
+                    temp_reader = RapidOCR()
+            except Exception as ocr_init_err:
+                logger.error(f"初始化 OCR 失败: {ocr_init_err}")
+                temp_reader = None
+
+            if temp_reader:
+                try:
+                    if self.ocr_engine == "easyocr":
+                        ocr_results = temp_reader.readtext(img_array)
+                        for idx, (bbox_coords, text, confidence) in enumerate(ocr_results):
+                            if not text or not text.strip():
+                                continue
+                            if float(confidence) < 0.1:
+                                continue
+                            x_coords = [p[0] for p in bbox_coords]
+                            y_coords = [p[1] for p in bbox_coords]
+                            bbox = BoundingBox(
+                                x1=float(min(x_coords)), y1=float(min(y_coords)),
+                                x2=float(max(x_coords)), y2=float(max(y_coords))
+                            )
+                            text_element = TextElement(
+                                text_id=f"text_{idx}",
+                                text=text.strip(),
+                                bbox=bbox,
+                                confidence=float(confidence),
+                                language="ch_sim" if any('一' <= c <= '鿿' for c in text) else "en",
+                                color="unknown",
+                                color_brightness=0.0
+                            )
+                            text_dict = asdict(text_element)
+                            text_dict["bbox"]["center_x"] = bbox.center_x
+                            text_dict["bbox"]["center_y"] = bbox.center_y
+                            ocr_texts.append(text_dict)
+                    else:
+                        result, _ = temp_reader(img_array, text_score=0.1)
+                        if result:
+                            for idx, line in enumerate(result):
+                                bbox_coords, text, score = line
+                                if not text or not text.strip():
+                                    continue
+                                x_coords = [p[0] for p in bbox_coords]
+                                y_coords = [p[1] for p in bbox_coords]
+                                bbox = BoundingBox(
+                                    x1=float(min(x_coords)), y1=float(min(y_coords)),
+                                    x2=float(max(x_coords)), y2=float(max(y_coords))
+                                )
+                                text_element = TextElement(
+                                    text_id=f"text_{idx}",
+                                    text=text.strip(),
+                                    bbox=bbox,
+                                    confidence=float(score),
+                                    language="ch_sim" if any('一' <= c <= '鿿' for c in text) else "en",
+                                    color="unknown",
+                                    color_brightness=0.0
+                                )
+                                text_dict = asdict(text_element)
+                                text_dict["bbox"]["center_x"] = bbox.center_x
+                                text_dict["bbox"]["center_y"] = bbox.center_y
+                                ocr_texts.append(text_dict)
+                except Exception as ocr_err:
+                    logger.error(f"OCR 识别失败: {ocr_err}")
+
+            logger.info(f"【视觉通道-仅OCR】识别完成: {len(ocr_texts)} 个文字")
+            context = PageContext(
+                page_id=page_id,
+                image_width=img.width,
+                image_height=img.height,
+                elements=[],
+                texts=ocr_texts,
+                structured_elements=[],
+                source="visual",
+            )
+            return context
 
         t0 = time.time()
         page_info = self._recognizer.recognize_from_image(screenshot_path)

@@ -300,8 +300,7 @@ async def update_case_relation(
         relation.device_android_id = request.device_android_id
     if request.llm_credential_id is not None:
         relation.llm_credential_id = request.llm_credential_id
-    if request.yolo_model_id is not None:
-        relation.yolo_model_id = request.yolo_model_id
+    relation.yolo_model_id = request.yolo_model_id
     if request.ocr_engine is not None:
         relation.ocr_engine = request.ocr_engine
     if request.reasoning_effort is not None:
