@@ -222,7 +222,7 @@ class AndroidInterface:
             logger.info(f"【uiautomator2】DOM 通道跳过：WebView 占比过高 ({webview_count}/{remaining})")
             return False
 
-        is_rich = clickable_count >= 3 and text_count >= 1
+        is_rich = clickable_count >= 1 and text_count >= 1
         logger.info(
             f"【uiautomator2】DOM 丰富度检查: "
             f"有效元素(clickable={clickable_count}, text={text_count}), "
