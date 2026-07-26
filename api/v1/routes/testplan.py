@@ -482,7 +482,7 @@ async def execute_plan(
         workspace_id=plan.workspace_id,
         plan_id=plan_id,
         task_name=plan.name,
-        author="baojun.wang",
+        author=current_user.username,
         status=TaskStatus.PENDING.value,
         total_jobs=len(relations),
         completed_jobs=0,
