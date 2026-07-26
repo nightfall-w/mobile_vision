@@ -138,7 +138,7 @@ CREATE TABLE `plan_case_relation` (
   `id`                INT           NOT NULL AUTO_INCREMENT,
   `plan_id`           INT           NOT NULL COMMENT '计划ID',
   `case_id`           INT           NOT NULL COMMENT '用例ID',
-  `device_id`         VARCHAR(100)  NOT NULL COMMENT '设备ID',
+  `device_id`         VARCHAR(100)  NULL     COMMENT '设备ID，为空表示动态分配',
   `device_name`       VARCHAR(200)  NULL     COMMENT '设备名称',
   `device_android_id` VARCHAR(64)   NULL     COMMENT '设备Android ID',
   `llm_credential_id` INT           NOT NULL COMMENT 'LLM凭证ID',
