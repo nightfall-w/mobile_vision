@@ -193,7 +193,7 @@
                 <span class="t-size">{{ formatFileSize(row.size) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="验证集指标" min-width="200">
+            <el-table-column label="验证集指标" min-width="360">
               <template #default="{ row }">
                 <div v-if="row.metrics" class="t-metrics-row">
                   <div v-if="row.metrics.map50 !== undefined" class="t-mr-item">
@@ -216,22 +216,22 @@
                 <span v-else class="t-na">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="测试集指标" min-width="200">
+            <el-table-column label="测试集指标" min-width="360">
               <template #default="{ row }">
-                <div v-if="row.test_metrics" class="t-metrics-row">
-                  <div v-if="row.test_metrics.map50 !== undefined" class="t-mr-item">
+                <div v-if="row.test_metrics" class="t-metrics-row t-metrics-row--test">
+                  <div v-if="row.test_metrics.map50 !== undefined" class="t-mr-item t-mr-item--test">
                     <span class="t-mr-lbl">mAP50</span>
                     <span class="t-mr-val">{{ (row.test_metrics.map50 * 100).toFixed(1) }}%</span>
                   </div>
-                  <div v-if="row.test_metrics['map50-95'] !== undefined" class="t-mr-item">
+                  <div v-if="row.test_metrics['map50-95'] !== undefined" class="t-mr-item t-mr-item--test">
                     <span class="t-mr-lbl">mAP50-95</span>
                     <span class="t-mr-val">{{ (row.test_metrics['map50-95'] * 100).toFixed(1) }}%</span>
                   </div>
-                  <div v-if="row.test_metrics.precision !== undefined" class="t-mr-item">
+                  <div v-if="row.test_metrics.precision !== undefined" class="t-mr-item t-mr-item--test">
                     <span class="t-mr-lbl">Precision</span>
                     <span class="t-mr-val">{{ (row.test_metrics.precision * 100).toFixed(1) }}%</span>
                   </div>
-                  <div v-if="row.test_metrics.recall !== undefined" class="t-mr-item">
+                  <div v-if="row.test_metrics.recall !== undefined" class="t-mr-item t-mr-item--test">
                     <span class="t-mr-lbl">Recall</span>
                     <span class="t-mr-val">{{ (row.test_metrics.recall * 100).toFixed(1) }}%</span>
                   </div>
@@ -1026,7 +1026,7 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 4px 10px;
-  min-width: 52px;
+  min-width: 68px;
 }
 
 .t-mr-item + .t-mr-item {
@@ -1042,6 +1042,7 @@ onMounted(() => {
   font-weight: 500;
   line-height: 1.4;
   margin-bottom: 1px;
+  white-space: nowrap;
 }
 
 .t-mr-val {
@@ -1051,6 +1052,16 @@ onMounted(() => {
   color: #1d1d1f;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
+}
+
+.t-metrics-row--test {
+  background: #fafbff;
+  border-radius: 8px;
+  padding: 2px 0;
+}
+
+.t-mr-item--test .t-mr-val {
+  color: #6c5ce7;
 }
 
 /* Actions */
