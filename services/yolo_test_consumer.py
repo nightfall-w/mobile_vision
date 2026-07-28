@@ -102,5 +102,5 @@ def start_model_test_consumer():
 
 def submit_model_test_task(model_id: str):
     """提交模型测试集评估任务到队列"""
-    test_yolo_model.publish({"model_id": model_id})
+    test_yolo_model.publish({"task_data": {"model_id": model_id}})
     print(f"[FunBoost] 模型测试集评估任务 {model_id} 已提交到队列")
