@@ -1,5 +1,11 @@
 <template>
   <div class="yolo-annotation">
+    <div class="ya-dataset-tip">
+      <el-icon :size="16"><InfoFilled /></el-icon>
+      <div>
+        <span><strong>训练集</strong>用于模型训练，<strong>验证集</strong>用于训练过程中验证，<strong>测试集</strong>不参与训练。训练完成后可在训练中心创建测试集评估任务进行测试。</span>
+      </div>
+    </div>
     <div class="ya-header-card">
       <div class="ya-header-inner">
         <div class="ya-title-group">
@@ -771,6 +777,27 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.ya-dataset-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #1e40af;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+.ya-dataset-tip .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #3b82f6;
+}
+.ya-dataset-tip strong {
+  font-weight: 600;
+}
 .ya-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; flex-shrink: 0; }
 .ya-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .ya-title-group { display: flex; align-items: center; gap: 12px; }

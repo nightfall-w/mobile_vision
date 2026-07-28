@@ -189,6 +189,14 @@ export function deleteModel(modelId) {
   return request.delete(`/api/v1/model/${modelId}`);
 }
 
+export function submitModelTest(modelId) {
+  return request.post(`/api/v1/train/models/${modelId}/test`);
+}
+
+export function getModelTestStatus(modelId) {
+  return request.get(`/api/v1/train/models/${modelId}/test-status`);
+}
+
 export function predictImage(modelId, image, params = {}) {
   const formData = new FormData();
   formData.append('model_id', modelId);

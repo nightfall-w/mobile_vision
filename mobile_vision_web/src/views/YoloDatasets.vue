@@ -246,7 +246,11 @@
 
     <el-dialog v-model="showUploadDialog" title="上传图片" width="600px">
       <div class="mb-4">
-        <label class="block text-sm font-medium mb-2">选择要上传到的集合</label>
+        <div class="upload-tip">
+          <el-icon :size="16"><InfoFilled /></el-icon>
+          <span>训练集用于模型训练，验证集用于训练过程中验证，测试集不参与训练，训练完成后可创建测试集评估任务进行测试</span>
+        </div>
+        <label class="block text-sm font-medium mb-2 mt-3">选择要上传到的集合</label>
         <el-radio-group v-model="selectedSplit" size="small">
           <el-radio-button value="train" label="训练集">训练集</el-radio-button>
           <el-radio-button value="val" label="验证集">验证集</el-radio-button>

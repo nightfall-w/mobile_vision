@@ -421,6 +421,23 @@ def delete_model(model_id: str):
             model.is_deleted = 1
 
 
+def update_model_test_metrics(model_id: str, test_metrics: Dict, test_status: str = 'completed'):
+    """更新模型测试集评估结果"""
+    with get_db_session() as db:
+        model = db.query(YoloModel).filter(YoloModel.id == model_id).first()
+        if model:
+            model.test_metrics = test_metrics
+            model.test_status = test_status
+
+
+def update_model_test_status(model_id: str, test_status: str):
+    """更新模型测试集评估状态"""
+    with get_db_session() as db:
+        model = db.query(YoloModel).filter(YoloModel.id == model_id).first()
+        if model:
+            model.test_status = test_status
+
+
 def _get_user_nickname(username: str) -> str:
     """根据用户名查询昵称"""
     if not username:
@@ -521,6 +538,8 @@ def _model_to_dict(model: YoloModel) -> Dict:
         'path': model.path,
         'size': model.size,
         'metrics': model.metrics,
+        'test_metrics': model.test_metrics,
+        'test_status': model.test_status or 'untested',
         'classes': model.classes,
         'config': config,
         'model_name': model_name,
