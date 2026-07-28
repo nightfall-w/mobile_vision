@@ -1,5 +1,12 @@
 <template>
   <div class="yolo-annotation">
+    <div v-if="showDatasetTip" class="ya-dataset-tip">
+      <el-icon :size="16"><InfoFilled /></el-icon>
+      <div>
+        <span><strong>训练集</strong>用于模型训练，<strong>验证集</strong>用于训练过程中验证，<strong>测试集</strong>不参与训练。训练完成后可在训练中心创建测试集评估任务进行测试。</span>
+      </div>
+      <el-icon class="ya-dataset-tip-close" :size="16" @click="closeDatasetTip"><Close /></el-icon>
+    </div>
     <div class="ya-header-card">
       <div class="ya-header-inner">
         <div class="ya-title-group">
@@ -201,7 +208,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { ArrowLeft, ArrowRight, Delete, Document, Edit, Refresh, Picture, Collection, List } from '@element-plus/icons-vue'
+import { ArrowLeft, ArrowRight, Close, Delete, Document, Edit, Refresh, Picture, Collection, List } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { getYoloDataset, getDatasetImages, getAnnotation, saveAnnotation, getModelsList, predictImage } from '@/network/api'
 
@@ -237,6 +244,19 @@ const selectedModelId = ref('')
 const autoAnnotating = ref(false)
 
 const datasetId = computed(() => route.params.datasetId)
+const showDatasetTip = ref(true)
+
+onMounted(() => {
+  try {
+    const closed = localStorage.getItem('yolo_dataset_tip_closed')
+    if (closed === '1') showDatasetTip.value = false
+  } catch {}
+})
+
+const closeDatasetTip = () => {
+  showDatasetTip.value = false
+  try { localStorage.setItem('yolo_dataset_tip_closed', '1') } catch {}
+}
 
 const loadDataset = async () => {
   try {
@@ -771,6 +791,40 @@ onMounted(async () => {
   flex-shrink: 0;
 }
 
+.ya-dataset-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  border: 1px solid #d0d9f0;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2c3e6b;
+  line-height: 1.6;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.ya-dataset-tip .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #4a6fa5;
+  opacity: 0.8;
+}
+.ya-dataset-tip strong {
+  font-weight: 600;
+}
+.ya-dataset-tip-close {
+  cursor: pointer;
+  flex-shrink: 0;
+  color: #3b82f6;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  margin-left: auto;
+}
+.ya-dataset-tip-close:hover {
+  opacity: 1;
+}
 .ya-header-card { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; flex-shrink: 0; }
 .ya-header-inner { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; }
 .ya-title-group { display: flex; align-items: center; gap: 12px; }
@@ -951,7 +1005,7 @@ onMounted(async () => {
 }
 
 .split-selector {
-  padding: 8px 14px 0;
+  padding: 8px 14px;
 }
 
 .split-selector :deep(.el-radio-button__inner) {

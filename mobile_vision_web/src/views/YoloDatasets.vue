@@ -246,7 +246,11 @@
 
     <el-dialog v-model="showUploadDialog" title="上传图片" width="600px">
       <div class="mb-4">
-        <label class="block text-sm font-medium mb-2">选择要上传到的集合</label>
+        <div class="upload-tip">
+          <el-icon :size="16"><InfoFilled /></el-icon>
+          <span>训练集用于模型训练，验证集用于训练过程中验证，测试集不参与训练，训练完成后可创建测试集评估任务进行测试</span>
+        </div>
+        <label class="block text-sm font-medium mb-2 mt-3">选择要上传到的集合</label>
         <el-radio-group v-model="selectedSplit" size="small">
           <el-radio-button value="train" label="训练集">训练集</el-radio-button>
           <el-radio-button value="val" label="验证集">验证集</el-radio-button>
@@ -438,7 +442,8 @@ import {
   updateYoloDatasetClasses,
   uploadYoloImages,
   getTrainModels,
-  startTrain
+  startTrain,
+  getDatasetValStatus
 } from '@/network/api'
 
 const router = useRouter()
@@ -732,6 +737,44 @@ const startTraining = async () => {
   }
 
   try {
+    const valStatusResp = await getDatasetValStatus(currentDatasetId.value)
+    if (valStatusResp.code !== 0) {
+      ElMessage.error('检查数据集状态失败')
+      return
+    }
+
+    const { train_count, val_count } = valStatusResp.data
+
+    if (val_count === 0) {
+      try {
+        await ElMessageBox.confirm(
+          '验证集是空的，是否将训练集作为验证集进行验证？',
+          '验证集为空',
+          {
+            confirmButtonText: '是，使用训练集验证',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+      } catch {
+        return
+      }
+    } else if (train_count > 0 && val_count < train_count / 3) {
+      try {
+        await ElMessageBox.confirm(
+          `推荐验证集图片数在训练集的 1/3 以上（当前训练集 ${train_count} 张，验证集 ${val_count} 张），是否继续？`,
+          '验证集图片不足',
+          {
+            confirmButtonText: '是，继续训练',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+      } catch {
+        return
+      }
+    }
+
     const resp = await startTrain({
       dataset_id: currentDatasetId.value,
       config: trainConfig.value
@@ -1887,6 +1930,28 @@ onMounted(() => {
   background: #4c5fd8;
   border-color: #4c5fd8;
   box-shadow: 0 2px 6px rgba(91, 110, 247, 0.4);
+}
+
+
+.upload-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  border: 1px solid #d0d9f0;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2c3e6b;
+  line-height: 1.6;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.upload-tip .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #4a6fa5;
+  opacity: 0.8;
 }
 
 .upload-component {

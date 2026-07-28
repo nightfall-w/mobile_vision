@@ -149,6 +149,10 @@ export function getDatasetImages(datasetId, split) {
   return request.get(url);
 }
 
+export function getDatasetValStatus(datasetId) {
+  return request.get(`/api/v1/dataset/${datasetId}/val-status`);
+}
+
 export function getAnnotation(datasetId, imageName) {
   return request.get(`/api/v1/annotation/${datasetId}/${encodeURIComponent(imageName)}`);
 }
@@ -183,6 +187,14 @@ export function retryTrainTask(taskId) {
 
 export function deleteModel(modelId) {
   return request.delete(`/api/v1/model/${modelId}`);
+}
+
+export function submitModelTest(modelId) {
+  return request.post(`/api/v1/train/models/${modelId}/test`);
+}
+
+export function getModelTestStatus(modelId) {
+  return request.get(`/api/v1/train/models/${modelId}/test-status`);
 }
 
 export function predictImage(modelId, image, params = {}) {

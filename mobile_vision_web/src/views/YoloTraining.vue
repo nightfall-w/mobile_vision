@@ -193,7 +193,7 @@
                 <span class="t-size">{{ formatFileSize(row.size) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="指标" min-width="280">
+            <el-table-column label="验证集指标" min-width="310">
               <template #default="{ row }">
                 <div v-if="row.metrics" class="t-metrics-row">
                   <div v-if="row.metrics.map50 !== undefined" class="t-mr-item">
@@ -216,16 +216,47 @@
                 <span v-else class="t-na">-</span>
               </template>
             </el-table-column>
+            <el-table-column label="测试集指标" min-width="310">
+              <template #default="{ row }">
+                <div v-if="row.test_metrics" class="t-metrics-row t-metrics-row--test">
+                  <div v-if="row.test_metrics.map50 !== undefined" class="t-mr-item t-mr-item--test">
+                    <span class="t-mr-lbl">mAP50</span>
+                    <span class="t-mr-val">{{ (row.test_metrics.map50 * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div v-if="row.test_metrics['map50-95'] !== undefined" class="t-mr-item t-mr-item--test">
+                    <span class="t-mr-lbl">mAP50-95</span>
+                    <span class="t-mr-val">{{ (row.test_metrics['map50-95'] * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div v-if="row.test_metrics.precision !== undefined" class="t-mr-item t-mr-item--test">
+                    <span class="t-mr-lbl">Precision</span>
+                    <span class="t-mr-val">{{ (row.test_metrics.precision * 100).toFixed(1) }}%</span>
+                  </div>
+                  <div v-if="row.test_metrics.recall !== undefined" class="t-mr-item t-mr-item--test">
+                    <span class="t-mr-lbl">Recall</span>
+                    <span class="t-mr-val">{{ (row.test_metrics.recall * 100).toFixed(1) }}%</span>
+                  </div>
+                </div>
+                <span v-else class="t-na">-</span>
+              </template>
+            </el-table-column>
             <el-table-column prop="created_at" label="生成时间" width="180">
               <template #default="{ row }">
                 <span class="t-time">{{ formatTime(row.created_at) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="220" fixed="right">
+            <el-table-column label="操作" width="320" fixed="right">
               <template #default="{ row }">
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
-                  <button class="t-act t-act-test" @click="openTestModelDialog(row)">测试</button>
+                  <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
+                  <button
+                    class="t-act"
+                    :class="getTestEvalBtnClass(row)"
+                    :disabled="row.test_status === 'pending' || row.test_status === 'running'"
+                    @click="handleTestEval(row)"
+                  >
+                    {{ getTestEvalBtnText(row) }}
+                  </button>
                   <button class="t-act t-act-del" @click="removeModel(row.id)">删除</button>
                 </div>
               </template>
@@ -445,7 +476,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Warning, Search, List, Aim, UploadFilled, TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteTrainTask, getTrainTasks, retryTrainTask, abortTrainTask } from '@/network/api.js'
-import { getModelsList, deleteModel as deleteModelApi, predictImage } from '@/network/api'
+import { getModelsList, deleteModel as deleteModelApi, predictImage, submitModelTest, getModelTestStatus, getDatasetValStatus } from '@/network/api'
 
 // ===== Tab 切换 =====
 const route = useRoute()
@@ -693,6 +724,88 @@ const handleMouseUp = () => { isDragging.value = false }
 const resetView = () => { scale.value = 1; position.value = { x: 0, y: 0 } }
 const closePreview = () => { showImagePreview.value = false; scale.value = 1; position.value = { x: 0, y: 0 }; isDragging.value = false }
 
+// ===== 测试集评估 =====
+const testEvalPolling = ref({})
+
+const getTestEvalBtnText = (row) => {
+  if (row.test_status === 'pending' || row.test_status === 'running') return '评估中...'
+  if (row.test_status === 'completed') return '重新评估'
+  if (row.test_status === 'failed') return '评估失败，重试'
+  return '测试集评估'
+}
+
+const getTestEvalBtnClass = (row) => {
+  if (row.test_status === 'completed') return 't-act-eval'
+  if (row.test_status === 'failed') return 't-act-eval t-act-eval--retry'
+  if (row.test_status === 'pending' || row.test_status === 'running') return 't-act-disabled'
+  return 't-act-eval'
+}
+
+const handleTestEval = async (row) => {
+  if (row.test_status === 'pending' || row.test_status === 'running') return
+  try {
+    const valStatusResp = await getDatasetValStatus(row.dataset_id)
+    if (valStatusResp.code === 0) {
+      const testCount = valStatusResp.data.test_count || 0
+      if (testCount === 0) {
+        ElMessage.warning('测试集为空，请先上传测试集图片')
+        return
+      }
+    }
+
+    const resp = await submitModelTest(row.id)
+    if (resp.code === 0) {
+      ElMessage.success('测试集评估任务已提交')
+      row.test_status = 'pending'
+      startTestEvalPolling(row)
+    } else {
+      ElMessage.error(resp.message || '提交失败')
+    }
+  } catch (error) {
+    console.error('提交测试集评估失败:', error)
+    ElMessage.error('提交失败：网络或服务器错误')
+  }
+}
+
+const startTestEvalPolling = (row) => {
+  if (testEvalPolling.value[row.id]) return
+  let retries = 0
+  const maxRetries = 60
+  const poll = () => {
+    if (retries >= maxRetries) {
+      clearInterval(timer)
+      delete testEvalPolling.value[row.id]
+      ElMessage.warning('测试集评估超时，请稍后查看结果')
+      return
+    }
+    retries++
+  }
+  const timer = setInterval(async () => {
+    poll()
+    try {
+      const resp = await getModelTestStatus(row.id)
+      if (resp.code === 0) {
+        row.test_status = resp.data.test_status
+        if (resp.data.test_metrics) {
+          row.test_metrics = resp.data.test_metrics
+        }
+        if (resp.data.test_status === 'completed') {
+          clearInterval(timer)
+          delete testEvalPolling.value[row.id]
+          ElMessage.success('测试集评估完成')
+        } else if (resp.data.test_status === 'failed') {
+          clearInterval(timer)
+          delete testEvalPolling.value[row.id]
+          ElMessage.error('测试集评估失败')
+        }
+      }
+    } catch (e) {
+      console.error('轮询测试状态失败:', e)
+    }
+  }, 2000)
+  testEvalPolling.value[row.id] = timer
+}
+
 // ===== 通用工具 =====
 const formatTime = (time) => {
   if (!time) return '-'
@@ -911,42 +1024,83 @@ onMounted(() => {
 /* Metrics split columns */
 .t-metrics-row {
   display: inline-flex;
-  border: 1px solid #e8e8e8;
-  border-radius: 7px;
-  overflow: hidden;
-  background: #fafafa;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f5f5f7;
+  border-radius: 10px;
 }
 
 .t-mr-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 10px;
-  min-width: 52px;
+  min-width: 62px;
+  padding: 5px 8px 4px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  border: 0.5px solid rgba(0,0,0,0.04);
 }
 
 .t-mr-item + .t-mr-item {
-  border-left: 1px solid #e8e8e8;
+  border-left: none;
+  margin-left: 0;
 }
 
 .t-mr-lbl {
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   color: #8e8e93;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   font-weight: 500;
   line-height: 1.4;
   margin-bottom: 1px;
+  white-space: nowrap;
+  opacity: 0.7;
 }
 
 .t-mr-val {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #1d1d1f;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
+}
+
+.t-metrics-row--test {
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f0f0f5;
+  border-radius: 10px;
+}
+
+.t-mr-item--test {
+  min-width: 62px;
+  padding: 5px 8px 4px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  border: 0.5px solid rgba(0,0,0,0.04);
+}
+
+.t-mr-item--test + .t-mr-item--test {
+  border-left: none;
+  margin-left: 0;
+}
+
+.t-mr-item--test .t-mr-lbl {
+  color: #8e8e93;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  opacity: 0.7;
+}
+
+.t-mr-item--test .t-mr-val {
+  color: #515154;
+  font-size: 13px;
 }
 
 /* Actions */
@@ -976,6 +1130,11 @@ onMounted(() => {
 .t-act-abort:hover { background: #fef3c7; }
 .t-act-del { background: #fef2f2; color: #dc2626; }
 .t-act-del:hover { background: #fee2e2; }
+.t-act-disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.t-act-eval { background: #eef2ff; color: #4f46e5; }
+.t-act-eval:hover { background: #e0e7ff; }
+.t-act-eval--retry { background: #fef2f2; color: #dc2626; }
+.t-act-eval--retry:hover { background: #fee2e2; }
 
 /* ===== 详情抽屉 ===== */
 .detail-content { padding: 0 4px; }

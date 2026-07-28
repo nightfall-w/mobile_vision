@@ -3,6 +3,7 @@ YOLO 训练任务 API - 使用 FunBoost 异步队列
 """
 from fastapi import APIRouter, Body, Query, Depends
 from pathlib import Path
+import os
 
 from core.response import HttpErrcode, api_response
 from core.config import YOLO_BASE_MODELS_DIR
@@ -18,9 +19,13 @@ from app.yolo.controller import (
     delete_task,
     abort_task,
     get_all_models,
-    create_model
+    create_model,
+    get_model,
+    update_model_test_metrics,
+    update_model_test_status
 )
 from services.yolo_train_consumer import submit_train_task
+from services.yolo_test_consumer import submit_model_test_task
 
 router = APIRouter(prefix="/train", tags=["训练"])
 
@@ -181,3 +186,42 @@ async def delete_task_api(
     """删除训练任务"""
     delete_task(task_id)
     return api_response(message="任务删除成功")
+
+
+@router.post("/models/{model_id}/test")
+async def test_model_api(
+    model_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """提交测试集评估任务"""
+    model = get_model(model_id)
+    if not model:
+        return api_response(code=HttpErrcode.NOT_FOUND, message="模型不存在")
+
+    if not model.get('path') or not os.path.exists(model.get('path', '')):
+        return api_response(code=HttpErrcode.PARAMS_ERROR, message="模型文件不存在")
+
+    dataset = get_dataset(model['dataset_id'])
+    if not dataset:
+        return api_response(code=HttpErrcode.NOT_FOUND, message="关联数据集不存在")
+
+    update_model_test_status(model_id, 'pending')
+    submit_model_test_task(model_id)
+
+    return api_response(message="测试集评估任务已提交到队列")
+
+
+@router.get("/models/{model_id}/test-status")
+async def get_model_test_status_api(
+    model_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """获取模型测试集评估状态"""
+    model = get_model(model_id)
+    if not model:
+        return api_response(code=HttpErrcode.NOT_FOUND, message="模型不存在")
+
+    return api_response(data={
+        "test_status": model.get('test_status', 'untested'),
+        "test_metrics": model.get('test_metrics')
+    })
