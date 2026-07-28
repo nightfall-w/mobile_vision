@@ -92,8 +92,10 @@ async def dataset_val_status_api(
 
     train_count = 0
     val_count = 0
+    test_count = 0
     train_dir = images_dir / 'train'
     val_dir = images_dir / 'val'
+    test_dir = images_dir / 'test'
 
     if train_dir.exists():
         for f in train_dir.iterdir():
@@ -105,10 +107,16 @@ async def dataset_val_status_api(
             if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
                 val_count += 1
 
+    if test_dir.exists():
+        for f in test_dir.iterdir():
+            if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
+                test_count += 1
+
     return api_response(data={
         "train_count": train_count,
         "val_count": val_count,
-        "total_count": train_count + val_count
+        "test_count": test_count,
+        "total_count": train_count + val_count + test_count
     })
 
 

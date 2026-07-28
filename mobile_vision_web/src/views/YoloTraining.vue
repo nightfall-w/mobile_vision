@@ -476,7 +476,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Warning, Search, List, Aim, UploadFilled, TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteTrainTask, getTrainTasks, retryTrainTask, abortTrainTask } from '@/network/api.js'
-import { getModelsList, deleteModel as deleteModelApi, predictImage, submitModelTest, getModelTestStatus } from '@/network/api'
+import { getModelsList, deleteModel as deleteModelApi, predictImage, submitModelTest, getModelTestStatus, getDatasetValStatus } from '@/network/api'
 
 // ===== Tab 切换 =====
 const route = useRoute()
@@ -735,15 +735,24 @@ const getTestEvalBtnText = (row) => {
 }
 
 const getTestEvalBtnClass = (row) => {
-  if (row.test_status === 'completed') return 't-act-test'
-  if (row.test_status === 'failed') return 't-act-retry'
+  if (row.test_status === 'completed') return 't-act-eval'
+  if (row.test_status === 'failed') return 't-act-eval t-act-eval--retry'
   if (row.test_status === 'pending' || row.test_status === 'running') return 't-act-disabled'
-  return 't-act-test'
+  return 't-act-eval'
 }
 
 const handleTestEval = async (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return
   try {
+    const valStatusResp = await getDatasetValStatus(row.dataset_id)
+    if (valStatusResp.code === 0) {
+      const testCount = valStatusResp.data.test_count || 0
+      if (testCount === 0) {
+        ElMessage.warning('测试集为空，请先上传测试集图片')
+        return
+      }
+    }
+
     const resp = await submitModelTest(row.id)
     if (resp.code === 0) {
       ElMessage.success('测试集评估任务已提交')
@@ -1017,7 +1026,7 @@ onMounted(() => {
   display: inline-flex;
   gap: 6px;
   padding: 4px 6px;
-  background: #f0f4ff;
+  background: #f5f5f7;
   border-radius: 10px;
 }
 
@@ -1030,7 +1039,7 @@ onMounted(() => {
   background: rgba(255,255,255,0.8);
   border-radius: 8px;
   backdrop-filter: blur(4px);
-  border: 0.5px solid rgba(37, 99, 235, 0.08);
+  border: 0.5px solid rgba(0,0,0,0.04);
 }
 
 .t-mr-item + .t-mr-item {
@@ -1041,7 +1050,7 @@ onMounted(() => {
 .t-mr-lbl {
   display: block;
   font-size: 8px;
-  color: #3b82f6;
+  color: #8e8e93;
   text-transform: uppercase;
   letter-spacing: 0.8px;
   font-weight: 500;
@@ -1055,7 +1064,7 @@ onMounted(() => {
   display: block;
   font-size: 13px;
   font-weight: 700;
-  color: #1d4ed8;
+  color: #1d1d1f;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
 }
@@ -1064,7 +1073,7 @@ onMounted(() => {
   display: inline-flex;
   gap: 6px;
   padding: 4px 6px;
-  background: #f5f3ff;
+  background: #f0f0f5;
   border-radius: 10px;
 }
 
@@ -1074,7 +1083,7 @@ onMounted(() => {
   background: rgba(255,255,255,0.8);
   border-radius: 8px;
   backdrop-filter: blur(4px);
-  border: 0.5px solid rgba(109, 40, 217, 0.08);
+  border: 0.5px solid rgba(0,0,0,0.04);
 }
 
 .t-mr-item--test + .t-mr-item--test {
@@ -1083,14 +1092,14 @@ onMounted(() => {
 }
 
 .t-mr-item--test .t-mr-lbl {
-  color: #7c3aed;
+  color: #8e8e93;
   font-size: 8px;
   letter-spacing: 0.8px;
   opacity: 0.7;
 }
 
 .t-mr-item--test .t-mr-val {
-  color: #5b21b6;
+  color: #515154;
   font-size: 13px;
 }
 
@@ -1122,6 +1131,10 @@ onMounted(() => {
 .t-act-del { background: #fef2f2; color: #dc2626; }
 .t-act-del:hover { background: #fee2e2; }
 .t-act-disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
+.t-act-eval { background: #eef2ff; color: #4f46e5; }
+.t-act-eval:hover { background: #e0e7ff; }
+.t-act-eval--retry { background: #fef2f2; color: #dc2626; }
+.t-act-eval--retry:hover { background: #fee2e2; }
 
 /* ===== 详情抽屉 ===== */
 .detail-content { padding: 0 4px; }
