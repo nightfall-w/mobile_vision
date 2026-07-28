@@ -1932,6 +1932,28 @@ onMounted(() => {
   box-shadow: 0 2px 6px rgba(91, 110, 247, 0.4);
 }
 
+
+.upload-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 100%);
+  border: 1px solid #d0d9f0;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #2c3e6b;
+  line-height: 1.6;
+  margin-bottom: 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.upload-tip .el-icon {
+  margin-top: 2px;
+  flex-shrink: 0;
+  color: #4a6fa5;
+  opacity: 0.8;
+}
+
 .upload-component {
   width: 100%;
 }
