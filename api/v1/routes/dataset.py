@@ -77,6 +77,41 @@ async def delete_dataset_api(
         return api_response(code=HttpErrcode.PARAMS_ERROR, message=str(e))
 
 
+@router.get("/{dataset_id}/val-status")
+async def dataset_val_status_api(
+    dataset_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """检查数据集验证集状态（图片数量）"""
+    dataset = get_dataset(dataset_id)
+    if not dataset:
+        return api_response(code=HttpErrcode.NOT_FOUND, message="数据集不存在")
+
+    dataset_dir = DATA_STORAGE_ROOT / dataset_id
+    images_dir = dataset_dir / 'images'
+
+    train_count = 0
+    val_count = 0
+    train_dir = images_dir / 'train'
+    val_dir = images_dir / 'val'
+
+    if train_dir.exists():
+        for f in train_dir.iterdir():
+            if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
+                train_count += 1
+
+    if val_dir.exists():
+        for f in val_dir.iterdir():
+            if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
+                val_count += 1
+
+    return api_response(data={
+        "train_count": train_count,
+        "val_count": val_count,
+        "total_count": train_count + val_count
+    })
+
+
 @router.post("/{dataset_id}/recount")
 async def recount_dataset_api(
     dataset_id: str,

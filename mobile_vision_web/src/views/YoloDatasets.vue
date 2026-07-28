@@ -438,7 +438,8 @@ import {
   updateYoloDatasetClasses,
   uploadYoloImages,
   getTrainModels,
-  startTrain
+  startTrain,
+  getDatasetValStatus
 } from '@/network/api'
 
 const router = useRouter()
@@ -732,6 +733,44 @@ const startTraining = async () => {
   }
 
   try {
+    const valStatusResp = await getDatasetValStatus(currentDatasetId.value)
+    if (valStatusResp.code !== 0) {
+      ElMessage.error('检查数据集状态失败')
+      return
+    }
+
+    const { train_count, val_count } = valStatusResp.data
+
+    if (val_count === 0) {
+      try {
+        await ElMessageBox.confirm(
+          '验证集是空的，是否将训练集作为验证集进行验证？',
+          '验证集为空',
+          {
+            confirmButtonText: '是，使用训练集验证',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+      } catch {
+        return
+      }
+    } else if (train_count > 0 && val_count < train_count / 3) {
+      try {
+        await ElMessageBox.confirm(
+          `推荐验证集图片数在训练集的 1/3 以上（当前训练集 ${train_count} 张，验证集 ${val_count} 张），是否继续？`,
+          '验证集图片不足',
+          {
+            confirmButtonText: '是，继续训练',
+            cancelButtonText: '取消',
+            type: 'warning'
+          }
+        )
+      } catch {
+        return
+      }
+    }
+
     const resp = await startTrain({
       dataset_id: currentDatasetId.value,
       config: trainConfig.value

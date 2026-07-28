@@ -149,6 +149,10 @@ export function getDatasetImages(datasetId, split) {
   return request.get(url);
 }
 
+export function getDatasetValStatus(datasetId) {
+  return request.get(`/api/v1/dataset/${datasetId}/val-status`);
+}
+
 export function getAnnotation(datasetId, imageName) {
   return request.get(`/api/v1/annotation/${datasetId}/${encodeURIComponent(imageName)}`);
 }
