@@ -193,7 +193,7 @@
                 <span class="t-size">{{ formatFileSize(row.size) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="验证集指标" min-width="360">
+            <el-table-column label="验证集指标" min-width="310">
               <template #default="{ row }">
                 <div v-if="row.metrics" class="t-metrics-row">
                   <div v-if="row.metrics.map50 !== undefined" class="t-mr-item">
@@ -216,7 +216,7 @@
                 <span v-else class="t-na">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="测试集指标" min-width="360">
+            <el-table-column label="测试集指标" min-width="310">
               <template #default="{ row }">
                 <div v-if="row.test_metrics" class="t-metrics-row t-metrics-row--test">
                   <div v-if="row.test_metrics.map50 !== undefined" class="t-mr-item t-mr-item--test">
@@ -1055,13 +1055,37 @@ onMounted(() => {
 }
 
 .t-metrics-row--test {
-  background: #fafbff;
+  display: inline-flex;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f5f3ff;
+  border-radius: 10px;
+}
+
+.t-mr-item--test {
+  min-width: 62px;
+  padding: 5px 8px 4px;
+  background: rgba(255,255,255,0.8);
   border-radius: 8px;
-  padding: 2px 0;
+  backdrop-filter: blur(4px);
+  border: 0.5px solid rgba(109, 40, 217, 0.08);
+}
+
+.t-mr-item--test + .t-mr-item--test {
+  border-left: none;
+  margin-left: 0;
+}
+
+.t-mr-item--test .t-mr-lbl {
+  color: #7c3aed;
+  font-size: 8px;
+  letter-spacing: 0.8px;
+  opacity: 0.7;
 }
 
 .t-mr-item--test .t-mr-val {
-  color: #6c5ce7;
+  color: #5b21b6;
+  font-size: 13px;
 }
 
 /* Actions */
