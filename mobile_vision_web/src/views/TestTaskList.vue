@@ -85,46 +85,6 @@
         row-key="task_id"
         height="100%"
       >
-        <el-table-column type="expand">
-          <template #default="{ row }">
-            <div v-if="row.jobs && row.jobs.length > 0" class="job-detail">
-              <el-table :data="row.jobs" style="width: 100%" size="small">
-                <el-table-column label="Job ID" width="80">
-                  <template #default="{ row }">#{{ row.job_id }}</template>
-                </el-table-column>
-                <el-table-column prop="case_name" label="用例名称" min-width="150" show-overflow-tooltip />
-                <el-table-column prop="device_name" label="设备" width="120" />
-                <el-table-column prop="llm_name" label="LLM" min-width="130" show-overflow-tooltip />
-                <el-table-column prop="yolo_name" label="YOLO模型" min-width="110" show-overflow-tooltip />
-                <el-table-column prop="reasoning_effort" label="推理强度" width="100" />
-                <el-table-column prop="ocr_engine" label="OCR" width="80" />
-                <el-table-column label="状态" width="100">
-                  <template #default="{ row }">
-                    <el-tag :type="getJobStatusType(row.status)" size="small">
-                      {{ getStatusText(row.status) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column prop="duration" label="用时" width="100">
-                  <template #default="{ row }">{{ formatDuration(row.duration) }}</template>
-                </el-table-column>
-                <el-table-column prop="start_time" label="开始时间" width="160" />
-                <el-table-column label="操作" width="100">
-                  <template #default="{ row }">
-                    <el-button
-                      type="primary"
-                      size="small"
-                      @click="monitorJob(row)"
-                    >
-                      监控
-                    </el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
-            <div v-else class="no-jobs">该任务暂无Job</div>
-          </template>
-        </el-table-column>
         <el-table-column label="任务ID" width="100">
           <template #default="{ row }">
             <span class="id-text">#{{ row.task_id }}</span>
@@ -170,9 +130,10 @@
           </template>
         </el-table-column>
         <el-table-column prop="create_time" label="创建时间" width="180" />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <div class="action-group">
+              <span class="action-btn action-view" @click="showJobDetail(row)">查看</span>
               <span
                 v-if="row.status === 'running' || row.status === 'pending'"
                 class="action-btn action-run"
@@ -223,13 +184,95 @@
       </div>
     </template>
   </el-dialog>
+
+  <el-dialog
+    v-model="jobDialogVisible"
+    :title="'任务详情 - ' + (jobDialogTask?.task_name || '')"
+    width="820px"
+    top="4vh"
+    :close-on-click-modal="false"
+    destroy-on-close
+    class="jd-dialog"
+  >
+    <template #header="{ close, titleId, titleClass }">
+      <div class="jd-dialog-header">
+        <div class="jd-dialog-header-left">
+          <div class="jd-dialog-header-icon"><el-icon :size="18"><List /></el-icon></div>
+          <div>
+            <h3 :id="titleId" :class="titleClass" class="jd-dialog-title">{{ jobDialogTask?.task_name || '任务详情' }}</h3>
+            <p class="jd-dialog-subtitle">共 {{ jobDialogTask?.jobs?.length || 0 }} 个Job</p>
+          </div>
+        </div>
+        <div class="jd-dialog-header-right">
+          <div class="jd-summary-stats">
+            <span class="jd-stat jd-stat-success">{{ jobDialogTask?.completed_jobs || 0 }} 成功</span>
+            <span class="jd-stat jd-stat-danger">{{ jobDialogTask?.failed_jobs || 0 }} 失败</span>
+            <span class="jd-stat jd-stat-warning">{{ jobDialogTask?.aborted_jobs || 0 }} 放弃</span>
+            <span class="jd-stat jd-stat-info">{{ (jobDialogTask?.total_jobs || 0) - (jobDialogTask?.completed_jobs || 0) - (jobDialogTask?.failed_jobs || 0) - (jobDialogTask?.aborted_jobs || 0) }} 等待</span>
+          </div>
+          <el-button class="jd-close-btn" :icon="Close" circle size="small" @click="close" />
+        </div>
+      </div>
+    </template>
+
+    <div v-if="jobDialogTask?.jobs && jobDialogTask.jobs.length > 0" class="jd-dialog-body">
+      <div v-for="job in jobDialogTask.jobs" :key="job.job_id" class="jd-card" :class="'jd-card--' + (job.status || 'pending')">
+        <div class="jd-card-inner">
+          <div class="jd-card-top">
+            <div class="jd-card-top-left">
+              <span class="jd-card-badge" :style="{ background: getJobBadgeColor(job.status) }">
+                #{{ job.job_id }}
+              </span>
+              <span class="jd-card-name">{{ job.case_name }}</span>
+            </div>
+            <div class="jd-card-top-right">
+              <el-tag :type="getJobStatusType(job.status)" size="small" effect="dark" class="jd-card-status-tag">
+                {{ getStatusText(job.status) }}
+              </el-tag>
+              <el-button type="primary" size="small" @click="monitorJob(job)" class="jd-card-btn">
+                <el-icon :size="12"><Monitor /></el-icon>
+                监控
+              </el-button>
+            </div>
+          </div>
+          <div class="jd-card-divider"></div>
+          <div class="jd-card-bottom">
+            <span class="jd-meta" title="设备">
+              <el-icon :size="13"><Monitor /></el-icon>
+              <span>{{ job.device_name || '动态分配' }}</span>
+            </span>
+            <span class="jd-meta" title="LLM">
+              <el-icon :size="13"><Cpu /></el-icon>
+              <span>{{ job.llm_name || '-' }}</span>
+            </span>
+            <span class="jd-meta" title="推理强度">
+              <el-icon :size="13"><TrendCharts /></el-icon>
+              <span>{{ job.reasoning_effort || 'low' }}</span>
+            </span>
+            <span class="jd-meta" v-if="job.duration" title="耗时">
+              <el-icon :size="13"><Timer /></el-icon>
+              <span>{{ formatDuration(job.duration) }}</span>
+            </span>
+            <span class="jd-meta" v-if="job.start_time" title="开始时间">
+              <el-icon :size="13"><Clock /></el-icon>
+              <span>{{ job.start_time }}</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div v-else class="jd-empty">
+      <el-icon :size="40"><List /></el-icon>
+      <p>该任务暂无Job</p>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onBeforeMount, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, Search, User, Warning, List } from '@element-plus/icons-vue'
+import { Refresh, Search, User, Warning, Close, List, Monitor, Cpu, TrendCharts, Timer, View, Clock } from '@element-plus/icons-vue'
 import axios from '../network/axios'
 import { abortTestTask, deleteTestTask, getWorkspaceDetail } from '../network/api'
 
@@ -266,6 +309,8 @@ const managers = ref([])
 const managerNames = computed(() => managers.value.map(m => m.nickname).join('、'))
 const deleteTaskDialogVisible = ref(false)
 const deleteTaskData = ref(null)
+const jobDialogVisible = ref(false)
+const jobDialogTask = ref(null)
 
 const fetchWorkspaceDetail = async () => {
   try {
@@ -300,6 +345,16 @@ const getJobStatusType = (status) => {
     'failed': 'danger'
   }
   return types[status] || 'info'
+}
+
+const getJobBadgeColor = (status) => {
+  const colors = {
+    'pending': '#909399',
+    'running': '#409eff',
+    'completed': '#67c23a',
+    'failed': '#f56c6c'
+  }
+  return colors[status] || '#909399'
 }
 
 const getStatusText = (status) => {
@@ -448,13 +503,24 @@ const confirmDeleteTask = async () => {
   }
 }
 
+const showJobDetail = (row) => {
+  jobDialogTask.value = row
+  jobDialogVisible.value = true
+}
+
 const monitorJob = (row) => {
   router.push(`/testjobs/${row.job_id}/monitor`)
 }
 
 onBeforeMount(() => {
   if (route.query.plan_id) {
-    searchForm.plan_id = route.query.plan_id
+    searchForm.plan_id = Number(route.query.plan_id)
+    if (route.query.plan_name) {
+      planOptions.value.push({
+        plan_id: Number(route.query.plan_id),
+        name: route.query.plan_name
+      })
+    }
   }
   if (props.workspaceId) {
     filterWorkspaceId.value = props.workspaceId
@@ -475,7 +541,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
 }
 
 .sticky-header {
@@ -579,6 +644,8 @@ onMounted(() => {
 
 .action-run { background: #fffbeb; color: #d97706; }
 .action-run:hover { background: #fef3c7; }
+.action-view { background: #eef2ff; color: #5b6ef7; }
+.action-view:hover { background: #e0e7ff; }
 .action-delete { background: #fef2f2; color: #dc2626; }
 .action-delete:hover { background: #fee2e2; }
 
@@ -615,17 +682,228 @@ onMounted(() => {
   color: #606266;
 }
 
-.job-detail {
-  padding: 16px;
-  background: #fafafa;
+.jd-dialog {
+  --jd-radius: 16px;
+}
+
+.jd-dialog :deep(.el-dialog__header) {
+  padding: 0;
+  margin: 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.jd-dialog :deep(.el-dialog__body) {
+  padding: 0;
+}
+
+.jd-dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 20px 24px 16px;
+}
+
+.jd-dialog-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.jd-dialog-header-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  color: #5b6ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.jd-dialog-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d1d1f;
+  line-height: 1.3;
+}
+
+.jd-dialog-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #8e8e93;
+}
+
+.jd-dialog-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.jd-summary-stats {
+  display: flex;
+  gap: 10px;
+  background: #f8f9fa;
+  padding: 6px 12px;
   border-radius: 8px;
 }
 
-.no-jobs {
-  padding: 20px;
+.jd-stat {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.jd-stat-success { color: #67c23a; }
+.jd-stat-danger { color: #f56c6c; }
+.jd-stat-warning { color: #e6a23c; }
+.jd-stat-info { color: #909399; }
+
+.jd-close-btn {
+  --el-bg-color: #f5f5f5;
+  color: #8e8e93;
+}
+
+.jd-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.jd-card {
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.jd-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+}
+
+.jd-card--pending::before { background: #909399; }
+.jd-card--running::before { background: #409eff; }
+.jd-card--completed::before { background: #67c23a; }
+.jd-card--failed::before { background: #f56c6c; }
+
+.jd-card-inner {
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 12px;
+  margin-left: 4px;
+  padding: 0;
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.jd-card:hover .jd-card-inner {
+  border-color: #d0d5e0;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.jd-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px 10px;
+}
+
+.jd-card-top-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.jd-card-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.jd-card-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1d1d1f;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jd-card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.jd-card-status-tag {
+  font-weight: 500;
+}
+
+.jd-card-btn {
+  --el-button-size: 28px;
+}
+
+.jd-card-divider {
+  height: 1px;
+  background: #f0f2f5;
+  margin: 0 14px;
+}
+
+.jd-card-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 12px;
+  color: #8e8e93;
+  padding: 8px 14px 10px;
+}
+
+.jd-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #6b7280;
+}
+
+.jd-meta span {
+  white-space: nowrap;
+}
+
+.jd-empty {
+  padding: 48px 24px;
   text-align: center;
+  color: #c0c4cc;
+}
+
+.jd-empty p {
+  margin: 8px 0 0;
+  font-size: 14px;
   color: #909399;
 }
 
 .ttl-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
 </style>
+
+
+
+

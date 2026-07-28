@@ -26,6 +26,14 @@
               <el-icon><TrendCharts /></el-icon>
               推理强度: {{ jobDetail.reasoning_effort }}
             </span>
+            <span class="meta-item" v-if="jobDetail.yolo_name">
+              <el-icon><Aim /></el-icon>
+              YOLO: {{ jobDetail.yolo_name }}
+            </span>
+            <span class="meta-item" v-if="jobDetail.ocr_engine">
+              <el-icon><View /></el-icon>
+              OCR: {{ jobDetail.ocr_engine }}
+            </span>
           </div>
         </div>
       </div>
@@ -281,7 +289,10 @@ const jobDetail = ref({
   status: 'pending',
   result: '',
   llm_name: '',
-  reasoning_effort: ''
+  reasoning_effort: '',
+  yolo_name: '',
+  yolo_model_id: '',
+  ocr_engine: ''
 })
 const taskState = ref({
   task_id: jobId.value,
@@ -675,7 +686,10 @@ const fetchJobDetail = async () => {
         status: status,
         result: res.data.result,
         llm_name: res.data.llm_name || '',
-        reasoning_effort: res.data.reasoning_effort || ''
+        reasoning_effort: res.data.reasoning_effort || '',
+        yolo_name: res.data.yolo_name || '',
+        yolo_model_id: res.data.yolo_model_id || '',
+        ocr_engine: res.data.ocr_engine || ''
       }
       if (res.data.start_time) {
         startTime = new Date(res.data.start_time).getTime()
