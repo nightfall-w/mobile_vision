@@ -1015,41 +1015,47 @@ onMounted(() => {
 /* Metrics split columns */
 .t-metrics-row {
   display: inline-flex;
-  border: 1px solid #e8e8e8;
-  border-radius: 7px;
-  overflow: hidden;
-  background: #fafafa;
+  gap: 6px;
+  padding: 4px 6px;
+  background: #f0f4ff;
+  border-radius: 10px;
 }
 
 .t-mr-item {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 4px 10px;
-  min-width: 68px;
+  min-width: 62px;
+  padding: 5px 8px 4px;
+  background: rgba(255,255,255,0.8);
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+  border: 0.5px solid rgba(37, 99, 235, 0.08);
 }
 
 .t-mr-item + .t-mr-item {
-  border-left: 1px solid #e8e8e8;
+  border-left: none;
+  margin-left: 0;
 }
 
 .t-mr-lbl {
   display: block;
-  font-size: 9px;
-  color: #8e8e93;
+  font-size: 8px;
+  color: #3b82f6;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.8px;
   font-weight: 500;
   line-height: 1.4;
   margin-bottom: 1px;
   white-space: nowrap;
+  opacity: 0.7;
 }
 
 .t-mr-val {
   display: block;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: #1d1d1f;
+  color: #1d4ed8;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
 }
