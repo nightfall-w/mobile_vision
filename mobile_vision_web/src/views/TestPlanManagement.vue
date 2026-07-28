@@ -1205,7 +1205,8 @@ const viewTasks = (row) => {
     name: 'TestTaskList',
     params: { id: row.workspace_id },
     query: {
-      plan_id: row.plan_id
+      plan_id: row.plan_id,
+      plan_name: row.name
     }
   })
 }
