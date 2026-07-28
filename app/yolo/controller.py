@@ -37,10 +37,18 @@ def generate_data_yaml(dataset_id: str) -> str:
     val_img_dir = images_dir / 'val'
     test_img_dir = images_dir / 'test'
 
-    # 确定配置文件中的路径
+    # 检查子目录中是否有实际图片文件
+    def _has_images(dir_path):
+        if not dir_path.exists():
+            return False
+        for f in dir_path.iterdir():
+            if f.is_file() and f.suffix.lower() in ['.jpg', '.jpeg', '.png', '.bmp']:
+                return True
+        return False
+
     train_dir = str(train_img_dir) if train_img_dir.exists() else str(images_dir)
-    val_dir = str(val_img_dir) if val_img_dir.exists() else str(train_img_dir if train_img_dir.exists() else images_dir)
-    test_dir = str(test_img_dir) if test_img_dir.exists() else None
+    val_dir = str(val_img_dir) if _has_images(val_img_dir) else str(train_img_dir if train_img_dir.exists() else images_dir)
+    test_dir = str(test_img_dir) if _has_images(test_img_dir) else None
 
     classes = dataset['classes']
     class_names = []
