@@ -756,7 +756,7 @@ const cancelVisible = ref({})
 const cancelTimer = ref({})
 
 const handleEvalEnter = (row) => {
-  if (row.test_status !== 'running') return
+  if (row.test_status !== 'pending' && row.test_status !== 'running') return
   cancelVisible.value[row.id] = true
 }
 
