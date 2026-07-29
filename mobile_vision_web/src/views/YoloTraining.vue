@@ -252,7 +252,7 @@
                   <el-popover
                     trigger="hover"
                     placement="top"
-                    :disabled="row.test_status !== 'pending' && row.test_status !== 'running'"
+                    :disabled="row.test_status !== 'pending' && row.test_status !== 'running' && row.test_status !== 'cancelled'"
                     popper-class="eval-cancel-popover"
                     width="auto"
                   >
@@ -266,7 +266,16 @@
                         {{ getTestEvalBtnText(row) }}
                       </button>
                     </template>
-                    <el-button type="danger" size="small" @click="handleCancelEval(row)">取消评估</el-button>
+                    <el-button
+                      v-if="row.test_status === 'pending' || row.test_status === 'running'"
+                      type="danger" size="small"
+                      @click="handleCancelEval(row)"
+                    >取消评估</el-button>
+                    <el-button
+                      v-else
+                      type="primary" size="small"
+                      @click="handleTestEval(row)"
+                    >重新评估</el-button>
                   </el-popover>
                   <button class="t-act t-act-del" @click="removeModel(row.id)">删除</button>
                 </div>
