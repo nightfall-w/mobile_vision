@@ -250,13 +250,21 @@
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
                   <div class="t-act-eval-wrapper">
-                    <button class="t-act t-act-cancel" @click="handleCancelEval(row)">
+                    <button
+                      v-show="cancelVisible[row.id]"
+                      class="t-act t-act-cancel"
+                      @click="handleCancelEval(row)"
+                      @mouseenter="handleCancelEnter(row)"
+                      @mouseleave="handleCancelLeave(row)"
+                    >
                       × 取消
                     </button>
                     <button
                       class="t-act"
                       :class="getTestEvalBtnClass(row)"
                       :disabled="row.test_status === 'pending' || row.test_status === 'running'"
+                      @mouseenter="handleEvalEnter(row)"
+                      @mouseleave="handleEvalLeave(row)"
                       @click="handleTestEval(row)"
                     >
                       {{ getTestEvalBtnText(row) }}
@@ -747,6 +755,35 @@ const getTestEvalBtnClass = (row) => {
   return 't-act-eval'
 }
 
+const cancelVisible = ref({})
+const cancelTimer = ref({})
+
+const handleEvalEnter = (row) => {
+  if (row.test_status !== 'running') return
+  cancelVisible.value[row.id] = true
+}
+
+const handleEvalLeave = (row) => {
+  cancelTimer.value[row.id] = setTimeout(() => {
+    cancelVisible.value[row.id] = false
+  }, 300)
+}
+
+const handleCancelEnter = (row) => {
+  if (cancelTimer.value[row.id]) {
+    clearTimeout(cancelTimer.value[row.id])
+    cancelTimer.value[row.id] = null
+  }
+}
+
+const handleCancelLeave = (row) => {
+  cancelVisible.value[row.id] = false
+  if (cancelTimer.value[row.id]) {
+    clearTimeout(cancelTimer.value[row.id])
+    cancelTimer.value[row.id] = null
+  }
+}
+
 const handleTestEval = async (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return
   try {
@@ -1175,35 +1212,55 @@ onMounted(() => {
 .t-act-eval-wrapper {
   position: relative;
   display: inline-block;
-  padding-top: 28px;
 }
 
 .t-act-cancel {
   position: absolute;
-  top: 4px;
+  top: -38px;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
   color: #dc2626;
-  font-size: 11px;
-  padding: 3px 12px;
-  border-radius: 12px;
+  font-size: 12px;
+  padding: 5px 14px;
+  border-radius: 8px;
   border: 1px solid #fecaca;
   white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   z-index: 10;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
+  cursor: pointer;
+  line-height: 1.4;
 }
 
 .t-act-cancel:hover {
   background: #fef2f2;
 }
 
-.t-act-eval-wrapper:hover .t-act-cancel {
-  opacity: 1;
-  pointer-events: auto;
+/* Bubble arrow */
+.t-act-cancel::before {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  margin-left: -6px;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #fecaca;
+}
+
+.t-act-cancel::after {
+  content: '';
+  position: absolute;
+  bottom: -6px;
+  left: 50%;
+  margin-left: -5px;
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 5px solid #fff;
 }
 
 /* ===== 详情抽屉 ===== */
