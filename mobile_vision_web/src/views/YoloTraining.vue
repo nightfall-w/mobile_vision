@@ -193,7 +193,7 @@
                 <span class="t-size">{{ formatFileSize(row.size) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="验证集指标" min-width="310">
+            <el-table-column label="验证集指标" min-width="320">
               <template #default="{ row }">
                 <div v-if="row.metrics" class="t-metrics-row">
                   <div v-if="row.metrics.map50 !== undefined" class="t-mr-item">
@@ -216,7 +216,7 @@
                 <span v-else class="t-na">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="测试集指标" min-width="310">
+            <el-table-column label="测试集指标" min-width="320">
               <template #default="{ row }">
                 <div v-if="row.test_metrics" class="t-metrics-row t-metrics-row--test">
                   <div v-if="row.test_metrics.map50 !== undefined" class="t-mr-item t-mr-item--test">
@@ -1187,12 +1187,6 @@ onMounted(() => {
 .t-act-eval--retry:hover { background: #fee2e2; }
 
 /* Popover 取消评估按钮 */
-.eval-cancel-popover {
-  min-width: auto !important;
-  padding: 8px 12px !important;
-  display: flex;
-  justify-content: center;
-}
 
 /* ===== 详情抽屉 ===== */
 .detail-content { padding: 0 4px; }
@@ -1280,5 +1274,14 @@ onMounted(() => {
 .preview-hint {
   position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%);
   color: rgba(255,255,255,0.7); font-size: 14px;
+}
+</style>
+
+<style>
+.eval-cancel-popover {
+  min-width: auto !important;
+  padding: 8px 12px !important;
+  display: flex;
+  justify-content: center;
 }
 </style>
