@@ -1143,6 +1143,7 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   justify-content: center;
+  align-items: center;
 }
 
 .t-act {
@@ -1174,21 +1175,12 @@ onMounted(() => {
 .t-act-eval-wrapper {
   position: relative;
   display: inline-block;
-}
-
-.t-act-eval-wrapper::before {
-  content: '';
-  position: absolute;
-  top: -28px;
-  left: -10px;
-  right: -10px;
-  height: 28px;
-  pointer-events: auto;
+  padding-top: 28px;
 }
 
 .t-act-cancel {
   position: absolute;
-  top: -28px;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
@@ -1201,8 +1193,8 @@ onMounted(() => {
   box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
   z-index: 10;
   opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
 }
 
 .t-act-cancel:hover {
@@ -1211,7 +1203,7 @@ onMounted(() => {
 
 .t-act-eval-wrapper:hover .t-act-cancel {
   opacity: 1;
-  visibility: visible;
+  pointer-events: auto;
 }
 
 /* ===== 详情抽屉 ===== */
