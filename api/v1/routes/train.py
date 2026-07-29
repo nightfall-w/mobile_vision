@@ -7,6 +7,7 @@ import os
 
 from core.response import HttpErrcode, api_response
 from core.config import YOLO_BASE_MODELS_DIR
+from utils.task_cancel import send_cancel_signal, clear_cancel_signal
 from core.enums import TaskStatus
 from core.auth_middleware import get_current_user
 from app.user.models import UserModel
@@ -225,3 +226,25 @@ async def get_model_test_status_api(
         "test_status": model.get('test_status', 'untested'),
         "test_metrics": model.get('test_metrics')
     })
+
+
+@router.post("/models/{model_id}/test/abort")
+async def abort_model_test_api(
+    model_id: str,
+    current_user: UserModel = Depends(get_current_user)
+):
+    """取消测试集评估任务"""
+    model = get_model(model_id)
+    if not model:
+        return api_response(code=HttpErrcode.NOT_FOUND, message="模型不存在")
+
+    if model.get('test_status') not in ('pending', 'running'):
+        return api_response(
+            code=HttpErrcode.PARAMS_ERROR,
+            message="只有等待中或执行中的评估任务才能取消"
+        )
+
+    update_model_test_status(model_id, 'cancelled')
+    send_cancel_signal(model_id, namespace="yolo_model_test")
+
+    return api_response(message="测试集评估已取消")
