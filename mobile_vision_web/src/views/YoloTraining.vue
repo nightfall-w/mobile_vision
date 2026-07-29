@@ -249,14 +249,34 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <button
-                    class="t-act"
-                    :class="getTestEvalBtnClass(row)"
-                    :disabled="row.test_status === 'pending' || row.test_status === 'running'"
-                    @click="handleTestEval(row)"
+                  <el-popover
+                    trigger="hover"
+                    placement="top"
+                    :disabled="row.test_status !== 'pending' && row.test_status !== 'running' && row.test_status !== 'cancelled'"
+                    popper-class="eval-cancel-popover"
+                    width="auto"
                   >
-                    {{ getTestEvalBtnText(row) }}
-                  </button>
+                    <template #reference>
+                      <button
+                        class="t-act"
+                        :class="getTestEvalBtnClass(row)"
+                        :disabled="row.test_status === 'pending' || row.test_status === 'running'"
+                        @click="handleTestEval(row)"
+                      >
+                        {{ getTestEvalBtnText(row) }}
+                      </button>
+                    </template>
+                    <el-button
+                      v-if="row.test_status === 'pending' || row.test_status === 'running'"
+                      type="danger" size="small"
+                      @click="handleCancelEval(row)"
+                    >取消评估</el-button>
+                    <el-button
+                      v-else
+                      type="primary" size="small"
+                      @click="handleTestEval(row)"
+                    >重新评估</el-button>
+                  </el-popover>
                   <button class="t-act t-act-del" @click="removeModel(row.id)">删除</button>
                 </div>
               </template>
@@ -476,7 +496,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { Refresh, Warning, Search, List, Aim, UploadFilled, TrendCharts } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { deleteTrainTask, getTrainTasks, retryTrainTask, abortTrainTask } from '@/network/api.js'
-import { getModelsList, deleteModel as deleteModelApi, predictImage, submitModelTest, getModelTestStatus, getDatasetValStatus } from '@/network/api'
+import { getModelsList, deleteModel as deleteModelApi, predictImage, submitModelTest, getModelTestStatus, abortModelTest, getDatasetValStatus } from '@/network/api'
 
 // ===== Tab 切换 =====
 const route = useRoute()
@@ -726,11 +746,11 @@ const closePreview = () => { showImagePreview.value = false; scale.value = 1; po
 
 // ===== 测试集评估 =====
 const testEvalPolling = ref({})
-
 const getTestEvalBtnText = (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return '评估中...'
   if (row.test_status === 'completed') return '重新评估'
   if (row.test_status === 'failed') return '评估失败，重试'
+  if (row.test_status === 'cancelled') return '已取消'
   return '测试集评估'
 }
 
@@ -738,6 +758,7 @@ const getTestEvalBtnClass = (row) => {
   if (row.test_status === 'completed') return 't-act-eval'
   if (row.test_status === 'failed') return 't-act-eval t-act-eval--retry'
   if (row.test_status === 'pending' || row.test_status === 'running') return 't-act-disabled'
+  if (row.test_status === 'cancelled') return 't-act-disabled'
   return 't-act-eval'
 }
 
@@ -764,6 +785,32 @@ const handleTestEval = async (row) => {
   } catch (error) {
     console.error('提交测试集评估失败:', error)
     ElMessage.error('提交失败：网络或服务器错误')
+  }
+}
+
+const handleCancelEval = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要取消这个测试集评估任务吗？',
+      '确认取消',
+      { confirmButtonText: '确定取消', cancelButtonText: '取消', type: 'warning' }
+    )
+    const resp = await abortModelTest(row.id)
+    if (resp.code === 0) {
+      ElMessage.success('测试集评估已取消')
+      row.test_status = 'cancelled'
+      if (testEvalPolling.value[row.id]) {
+        clearInterval(testEvalPolling.value[row.id])
+        delete testEvalPolling.value[row.id]
+      }
+      loadModels()
+    } else {
+      ElMessage.error(resp.message || '取消失败')
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('取消失败：网络或服务器错误')
+    }
   }
 }
 
@@ -797,6 +844,9 @@ const startTestEvalPolling = (row) => {
           clearInterval(timer)
           delete testEvalPolling.value[row.id]
           ElMessage.error('测试集评估失败')
+        } else if (resp.data.test_status === 'cancelled') {
+          clearInterval(timer)
+          delete testEvalPolling.value[row.id]
         }
       }
     } catch (e) {
@@ -1135,6 +1185,12 @@ onMounted(() => {
 .t-act-eval:hover { background: #e0e7ff; }
 .t-act-eval--retry { background: #fef2f2; color: #dc2626; }
 .t-act-eval--retry:hover { background: #fee2e2; }
+
+/* Popover 取消评估按钮 */
+.eval-cancel-popover {
+  min-width: auto !important;
+  padding: 8px 12px !important;
+}
 
 /* ===== 详情抽屉 ===== */
 .detail-content { padding: 0 4px; }

@@ -197,6 +197,10 @@ export function getModelTestStatus(modelId) {
   return request.get(`/api/v1/train/models/${modelId}/test-status`);
 }
 
+export function abortModelTest(modelId) {
+  return request.post(`/api/v1/train/models/${modelId}/test/abort`);
+}
+
 export function predictImage(modelId, image, params = {}) {
   const formData = new FormData();
   formData.append('model_id', modelId);

@@ -14,8 +14,9 @@ from app.yolo.controller import (
     generate_data_yaml
 )
 from core.config import YOLO_DATASETS_DIR, YOLO_MODELS_DIR
-from core.enums import TaskStatus
+from core.enums import ModelTestStatus
 from models.yolo.trainer import YOLOTrainer
+from utils.task_cancel import check_cancel_signal, TaskCancelledException, clear_cancel_signal
 
 DATA_STORAGE_ROOT = YOLO_DATASETS_DIR
 
@@ -40,20 +41,37 @@ def test_yolo_model(task_data: dict):
             print(f"[FunBoost] 模型 {model_id} 不存在")
             return
 
+        # 检查当前状态：如果非 PENDING/RUNNING，直接返回
+        current_status = model.get('test_status', '')
+        if current_status not in (ModelTestStatus.PENDING, ModelTestStatus.RUNNING):
+            print(f"[FunBoost] 模型 {model_id} 当前状态为 {current_status}，跳过执行")
+            return
+
         model_path = model.get('path')
         if not model_path or not os.path.exists(model_path):
             print(f"[FunBoost] 模型文件不存在: {model_path}")
-            update_model_test_status(model_id, 'failed')
+            update_model_test_status(model_id, ModelTestStatus.FAILED)
             return
 
         dataset_id = model['dataset_id']
         dataset = get_dataset(dataset_id)
         if not dataset:
             print(f"[FunBoost] 数据集 {dataset_id} 不存在")
-            update_model_test_status(model_id, 'failed')
+            update_model_test_status(model_id, ModelTestStatus.FAILED)
             return
 
-        update_model_test_status(model_id, 'running')
+        # 再次检查状态（可能被并发取消）
+        model = get_model(model_id)
+        if model and model.get('test_status') not in (ModelTestStatus.PENDING, ModelTestStatus.RUNNING):
+            print(f"[FunBoost] 模型 {model_id} 已被取消，跳过执行")
+            return
+
+        update_model_test_status(model_id, ModelTestStatus.RUNNING)
+
+        # 检查取消信号
+        if check_cancel_signal(model_id, namespace="yolo_model_test"):
+            print(f"[FunBoost] 模型 {model_id} 收到取消信号")
+            return
 
         print(f"[FunBoost] 模型 {model_id}: 生成 data.yaml")
         yaml_path = generate_data_yaml(dataset_id)
@@ -64,6 +82,12 @@ def test_yolo_model(task_data: dict):
         print(f"[FunBoost] 模型 {model_id}: 开始测试集评估")
         results = trainer.validate(data_path=yaml_path, split='test')
 
+        # 评估完成后检查状态：如果已被取消，不更新指标
+        model = get_model(model_id)
+        if not model or model.get('test_status') in (ModelTestStatus.CANCELLED, ModelTestStatus.FAILED):
+            print(f"[FunBoost] 模型 {model_id} 状态为 {model.get('test_status') if model else 'N/A'}，不更新指标")
+            return
+
         test_metrics = {
             "precision": float(results.get("precision", 0)),
             "recall": float(results.get("recall", 0)),
@@ -72,17 +96,23 @@ def test_yolo_model(task_data: dict):
         }
 
         print(f"[FunBoost] 模型 {model_id}: 测试集评估完成: {test_metrics}")
-        update_model_test_metrics(model_id, test_metrics, 'completed')
+        update_model_test_metrics(model_id, test_metrics, ModelTestStatus.COMPLETED)
 
+    except TaskCancelledException:
+        print(f"[FunBoost] 模型 {model_id} 被取消")
+        return
     except Exception as e:
         print(f"[FunBoost] 模型 {model_id} 测试集评估失败: {str(e)}")
         try:
-            update_model_test_status(model_id, 'failed')
+            model = get_model(model_id)
+            if model and model.get('test_status') not in (ModelTestStatus.CANCELLED,):
+                update_model_test_status(model_id, ModelTestStatus.FAILED)
         except Exception:
             pass
         raise
 
     finally:
+        clear_cancel_signal(model_id, namespace="yolo_model_test")
         if trainer is not None:
             del trainer
         import torch
