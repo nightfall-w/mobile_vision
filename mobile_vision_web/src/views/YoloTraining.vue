@@ -249,23 +249,15 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <div
-                    class="t-act-eval-wrapper"
-                    :class="{ 'is-evaluating': row.test_status === 'pending' || row.test_status === 'running' }"
-                    @mouseenter="currentEvalRow = row"
-                    @mouseleave="currentEvalRow = null"
-                  >
-                    <button
-                      v-if="currentEvalRow === row"
-                      class="t-act t-act-cancel"
-                      @click="handleCancelEval(row)"
-                    >
+                  <div class="t-act-eval-wrapper">
+                    <button class="t-act t-act-cancel" @click="handleCancelEval(row)">
                       × 取消
                     </button>
                     <button
                       class="t-act"
                       :class="getTestEvalBtnClass(row)"
-                      @click="row.test_status !== 'pending' && row.test_status !== 'running' && handleTestEval(row)"
+                      :disabled="row.test_status === 'pending' || row.test_status === 'running'"
+                      @click="handleTestEval(row)"
                     >
                       {{ getTestEvalBtnText(row) }}
                     </button>
@@ -739,8 +731,6 @@ const closePreview = () => { showImagePreview.value = false; scale.value = 1; po
 
 // ===== 测试集评估 =====
 const testEvalPolling = ref({})
-const currentEvalRow = ref(null)
-
 const getTestEvalBtnText = (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return '评估中...'
   if (row.test_status === 'completed') return '重新评估'
@@ -1184,13 +1174,21 @@ onMounted(() => {
 .t-act-eval-wrapper {
   position: relative;
   display: inline-block;
-  padding-top: 24px;
-  margin-top: -24px;
+}
+
+.t-act-eval-wrapper::before {
+  content: '';
+  position: absolute;
+  top: -28px;
+  left: -10px;
+  right: -10px;
+  height: 28px;
+  pointer-events: auto;
 }
 
 .t-act-cancel {
   position: absolute;
-  top: -24px;
+  top: -28px;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
@@ -1202,15 +1200,18 @@ onMounted(() => {
   white-space: nowrap;
   box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
   z-index: 10;
-  pointer-events: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 
 .t-act-cancel:hover {
   background: #fef2f2;
 }
 
-.t-act-eval-wrapper.is-evaluating .t-act:not(.t-act-cancel) {
-  cursor: not-allowed;
+.t-act-eval-wrapper:hover .t-act-cancel {
+  opacity: 1;
+  visibility: visible;
 }
 
 /* ===== 详情抽屉 ===== */
