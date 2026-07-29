@@ -249,17 +249,25 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <div class="t-act-eval-wrapper" :class="{ 't-act-eval-wrapper--active': row.test_status === 'pending' || row.test_status === 'running' }">
-                    <button class="t-act t-act-cancel" @click="handleCancelEval(row)">× 取消</button>
-                    <button
-                      class="t-act"
-                      :class="getTestEvalBtnClass(row)"
-                      :disabled="row.test_status === 'pending' || row.test_status === 'running'"
-                      @click="handleTestEval(row)"
-                    >
-                      {{ getTestEvalBtnText(row) }}
-                    </button>
-                  </div>
+                  <el-popover
+                    trigger="hover"
+                    placement="top"
+                    :disabled="row.test_status !== 'pending' && row.test_status !== 'running'"
+                    popper-class="eval-cancel-popover"
+                    width="auto"
+                  >
+                    <template #reference>
+                      <button
+                        class="t-act"
+                        :class="getTestEvalBtnClass(row)"
+                        :disabled="row.test_status === 'pending' || row.test_status === 'running'"
+                        @click="handleTestEval(row)"
+                      >
+                        {{ getTestEvalBtnText(row) }}
+                      </button>
+                    </template>
+                    <el-button type="danger" size="small" @click="handleCancelEval(row)">取消评估</el-button>
+                  </el-popover>
                   <button class="t-act t-act-del" @click="removeModel(row.id)">删除</button>
                 </div>
               </template>
@@ -1141,7 +1149,6 @@ onMounted(() => {
   display: flex;
   gap: 6px;
   justify-content: center;
-  align-items: center;
 }
 
 .t-act {
@@ -1170,68 +1177,10 @@ onMounted(() => {
 .t-act-eval--retry { background: #fef2f2; color: #dc2626; }
 .t-act-eval--retry:hover { background: #fee2e2; }
 
-.t-act-eval-wrapper {
-  position: relative;
-  display: inline-block;
-  padding-top: 20px;
-}
-
-.t-act-eval-wrapper .t-act {
-  margin-top: -20px;
-}
-
-.t-act-cancel {
-  position: absolute;
-  top: 4px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: #fff;
-  color: #dc2626;
-  font-size: 12px;
-  padding: 5px 14px;
-  border-radius: 8px;
-  border: 1px solid #fecaca;
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 10;
-  cursor: pointer;
-  line-height: 1.4;
-  display: none;
-}
-
-.t-act-cancel:hover {
-  background: #fef2f2;
-}
-
-.t-act-eval-wrapper--active:hover .t-act-cancel {
-  display: block;
-}
-
-/* Bubble arrow */
-.t-act-cancel::before {
-  content: '';
-  position: absolute;
-  bottom: -7px;
-  left: 50%;
-  margin-left: -6px;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-top: 6px solid #fecaca;
-}
-
-.t-act-cancel::after {
-  content: '';
-  position: absolute;
-  bottom: -6px;
-  left: 50%;
-  margin-left: -5px;
-  width: 0;
-  height: 0;
-  border-left: 5px solid transparent;
-  border-right: 5px solid transparent;
-  border-top: 5px solid #fff;
+/* Popover 取消评估按钮 */
+.eval-cancel-popover {
+  min-width: auto !important;
+  padding: 8px 12px !important;
 }
 
 /* ===== 详情抽屉 ===== */
