@@ -249,21 +249,25 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <div class="t-act-eval-wrapper">
+                  <div
+                    class="t-act-eval-wrapper"
+                    :class="{ 'is-evaluating': row.test_status === 'pending' || row.test_status === 'running' }"
+                    @mouseenter="currentEvalRow = row"
+                    @mouseleave="currentEvalRow = null"
+                  >
                     <button
-                      class="t-act"
-                      :class="getTestEvalBtnClass(row)"
-                      :disabled="row.test_status === 'pending' || row.test_status === 'running'"
-                      @click="handleTestEval(row)"
-                    >
-                      {{ getTestEvalBtnText(row) }}
-                    </button>
-                    <button
-                      v-if="row.test_status === 'pending' || row.test_status === 'running'"
+                      v-if="currentEvalRow === row"
                       class="t-act t-act-cancel"
                       @click="handleCancelEval(row)"
                     >
                       × 取消
+                    </button>
+                    <button
+                      class="t-act"
+                      :class="getTestEvalBtnClass(row)"
+                      @click="row.test_status !== 'pending' && row.test_status !== 'running' && handleTestEval(row)"
+                    >
+                      {{ getTestEvalBtnText(row) }}
                     </button>
                   </div>
                   <button class="t-act t-act-del" @click="removeModel(row.id)">删除</button>
@@ -735,6 +739,7 @@ const closePreview = () => { showImagePreview.value = false; scale.value = 1; po
 
 // ===== 测试集评估 =====
 const testEvalPolling = ref({})
+const currentEvalRow = ref(null)
 
 const getTestEvalBtnText = (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return '评估中...'
@@ -1179,30 +1184,33 @@ onMounted(() => {
 .t-act-eval-wrapper {
   position: relative;
   display: inline-block;
+  padding-top: 24px;
+  margin-top: -24px;
 }
 
 .t-act-cancel {
-  background: #fef2f2;
-  color: #dc2626;
   position: absolute;
-  top: -50%;
+  top: -24px;
   left: 50%;
   transform: translateX(-50%);
-  opacity: 0;
-  visibility: hidden;
-  transition: all 0.15s ease;
+  background: #fff;
+  color: #dc2626;
   font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 6px;
+  padding: 3px 12px;
+  border-radius: 12px;
+  border: 1px solid #fecaca;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.12);
+  z-index: 10;
+  pointer-events: auto;
 }
 
 .t-act-cancel:hover {
-  background: #fee2e2;
+  background: #fef2f2;
 }
 
-.t-act-eval-wrapper:hover .t-act-cancel {
-  opacity: 1;
-  visibility: visible;
+.t-act-eval-wrapper.is-evaluating .t-act:not(.t-act-cancel) {
+  cursor: not-allowed;
 }
 
 /* ===== 详情抽屉 ===== */

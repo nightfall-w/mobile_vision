@@ -27,3 +27,13 @@ class StepStatus(str, Enum):
     RUNNING = "running"
     SUCCESS = "success"
     FAILED = "failed"
+
+
+class ModelTestStatus(str, Enum):
+    """模型测试集评估状态枚举"""
+    UNTESTED = "untested"
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
