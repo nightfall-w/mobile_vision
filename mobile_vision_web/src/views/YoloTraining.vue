@@ -249,15 +249,8 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <div class="t-act-eval-wrapper" @mouseenter="handleEvalEnter(row)" @mouseleave="handleEvalLeave(row)">
-                    <button
-                      v-show="cancelVisible[row.id]"
-                      class="t-act t-act-cancel"
-                      @click="handleCancelEval(row)"
-                      @mouseenter="handleCancelEnter(row)"
-                    >
-                      × 取消
-                    </button>
+                  <div class="t-act-eval-wrapper" :class="{ 't-act-eval-wrapper--active': row.test_status === 'pending' || row.test_status === 'running' }">
+                    <button class="t-act t-act-cancel" @click="handleCancelEval(row)">× 取消</button>
                     <button
                       class="t-act"
                       :class="getTestEvalBtnClass(row)"
@@ -752,27 +745,6 @@ const getTestEvalBtnClass = (row) => {
   return 't-act-eval'
 }
 
-const cancelVisible = ref({})
-const cancelTimer = ref({})
-
-const handleEvalEnter = (row) => {
-  if (row.test_status !== 'pending' && row.test_status !== 'running') return
-  cancelVisible.value[row.id] = true
-}
-
-const handleEvalLeave = (row) => {
-  cancelTimer.value[row.id] = setTimeout(() => {
-    cancelVisible.value[row.id] = false
-  }, 300)
-}
-
-const handleCancelEnter = (row) => {
-  if (cancelTimer.value[row.id]) {
-    clearTimeout(cancelTimer.value[row.id])
-    cancelTimer.value[row.id] = null
-  }
-}
-
 const handleTestEval = async (row) => {
   if (row.test_status === 'pending' || row.test_status === 'running') return
   try {
@@ -1201,11 +1173,13 @@ onMounted(() => {
 .t-act-eval-wrapper {
   position: relative;
   display: inline-block;
+  padding-top: 20px;
+  top: -20px;
 }
 
 .t-act-cancel {
   position: absolute;
-  top: -38px;
+  top: 4px;
   left: 50%;
   transform: translateX(-50%);
   background: #fff;
@@ -1219,10 +1193,15 @@ onMounted(() => {
   z-index: 10;
   cursor: pointer;
   line-height: 1.4;
+  display: none;
 }
 
 .t-act-cancel:hover {
   background: #fef2f2;
+}
+
+.t-act-eval-wrapper--active:hover .t-act-cancel {
+  display: block;
 }
 
 /* Bubble arrow */
