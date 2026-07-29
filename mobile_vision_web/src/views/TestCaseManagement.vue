@@ -588,8 +588,8 @@ export default {
 
 .action-view { background: #eef2ff; color: #5b6ef7; }
 .action-view:hover { background: #dde3ff; }
-.action-edit { background: #eef2ff; color: #5b6ef7; }
-.action-edit:hover { background: #dde3ff; }
+.action-edit { background: #fffbeb; color: #d97706; }
+.action-edit:hover { background: #fef3c7; }
 .action-delete { background: #fef2f2; color: #dc2626; }
 .action-delete:hover { background: #fee2e2; }
 
