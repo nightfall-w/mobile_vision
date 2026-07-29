@@ -1190,6 +1190,8 @@ onMounted(() => {
 .eval-cancel-popover {
   min-width: auto !important;
   padding: 8px 12px !important;
+  display: flex;
+  justify-content: center;
 }
 
 /* ===== 详情抽屉 ===== */
