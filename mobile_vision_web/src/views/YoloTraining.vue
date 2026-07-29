@@ -1174,7 +1174,10 @@ onMounted(() => {
   position: relative;
   display: inline-block;
   padding-top: 20px;
-  top: -20px;
+}
+
+.t-act-eval-wrapper .t-act {
+  margin-top: -20px;
 }
 
 .t-act-cancel {
