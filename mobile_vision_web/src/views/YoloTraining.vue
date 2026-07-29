@@ -249,13 +249,12 @@
                 <div class="t-actions">
                   <button class="t-act t-act-detail" @click="showModelDetail(row)">详情</button>
                   <button class="t-act t-act-test" @click="openTestModelDialog(row)">推理测试</button>
-                  <div class="t-act-eval-wrapper">
+                  <div class="t-act-eval-wrapper" @mouseenter="handleEvalEnter(row)" @mouseleave="handleEvalLeave(row)">
                     <button
                       v-show="cancelVisible[row.id]"
                       class="t-act t-act-cancel"
                       @click="handleCancelEval(row)"
                       @mouseenter="handleCancelEnter(row)"
-                      @mouseleave="handleCancelLeave(row)"
                     >
                       × 取消
                     </button>
@@ -263,8 +262,6 @@
                       class="t-act"
                       :class="getTestEvalBtnClass(row)"
                       :disabled="row.test_status === 'pending' || row.test_status === 'running'"
-                      @mouseenter="handleEvalEnter(row)"
-                      @mouseleave="handleEvalLeave(row)"
                       @click="handleTestEval(row)"
                     >
                       {{ getTestEvalBtnText(row) }}
@@ -770,14 +767,6 @@ const handleEvalLeave = (row) => {
 }
 
 const handleCancelEnter = (row) => {
-  if (cancelTimer.value[row.id]) {
-    clearTimeout(cancelTimer.value[row.id])
-    cancelTimer.value[row.id] = null
-  }
-}
-
-const handleCancelLeave = (row) => {
-  cancelVisible.value[row.id] = false
   if (cancelTimer.value[row.id]) {
     clearTimeout(cancelTimer.value[row.id])
     cancelTimer.value[row.id] = null
