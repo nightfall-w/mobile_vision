@@ -1163,6 +1163,29 @@ watch(() => taskState.value.current_task_index, (newIdx) => {
   })
 })
 
+// 执行过程中，当前子任务的步骤数量增加时，滚动最新步骤到可视区
+watch(() => {
+  const idx = taskState.value.current_task_index
+  if (idx === undefined || idx < 0) return -1
+  const subtask = taskState.value.task_list?.[idx]
+  return subtask?.steps?.length || 0
+}, (newLen, oldLen) => {
+  if (isReplaying.value) return
+  if (newLen === 0 || newLen <= (oldLen ?? 0)) return
+  nextTick(() => {
+    if (subtaskListRef.value) {
+      // 找到当前 active 子任务中的最后一个 step-item，滚动到可视区
+      const active = subtaskListRef.value.querySelector('.subtask-item.active')
+      if (active) {
+        const lastStep = active.querySelector('.step-item:last-child')
+        if (lastStep) {
+          lastStep.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        }
+      }
+    }
+  })
+}, { deep: true })
+
 watch(currentScreenshot, (newVal) => {
   if (!newVal) {
     containerWidth.value = '40vw'
