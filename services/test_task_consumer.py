@@ -1,7 +1,7 @@
 """
 测试任务消费者 - 使用 FunBoost 异步执行
 """
-
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -315,7 +315,7 @@ def execute_test_task(task_data: dict):
                                     manager.send_screenshot(job_id, screenshot_base64)
                         except Exception as e:
                             print(f"[FunBoost] 更新截图失败: {e}")
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(1)
 
                 screenshot_task = asyncio.create_task(update_screenshot())
 
@@ -380,6 +380,11 @@ def execute_test_task(task_data: dict):
                         manager.send_state_update(job_id, execution_state.to_dict())
 
                     elif state_type == "step_executing":
+                        # 捕获当前截图路径
+                        screenshot_filename = None
+                        if hasattr(interface, "last_screenshot_path") and interface.last_screenshot_path:
+                            screenshot_filename = os.path.basename(interface.last_screenshot_path)
+
                         step = Step(
                             step_number=data.get("step_number", 0),
                             action=data.get("action", ""),
@@ -391,6 +396,8 @@ def execute_test_task(task_data: dict):
                             assertion=data.get("assertion"),
                             result="执行中...",
                             success=True,
+                            screenshot_path=screenshot_filename,  # 新增
+                            timestamp=datetime.now().isoformat(),
                         )
                         execution_state.current_step = step
                         execution_state.total_steps += 1
@@ -411,6 +418,7 @@ def execute_test_task(task_data: dict):
                         step_num = data.get("step_number", 0)
                         success = data.get("success", True)
                         change_type = data.get("change_type", "")
+                        step_shot = data.get("screenshot_path", "")
 
                         if (
                                 execution_state.current_step
@@ -418,6 +426,8 @@ def execute_test_task(task_data: dict):
                         ):
                             execution_state.current_step.success = success
                             execution_state.current_step.result = change_type
+                            if step_shot:
+                                execution_state.current_step.screenshot_path = step_shot
 
                         if success:
                             execution_state.success_steps += 1
@@ -432,12 +442,15 @@ def execute_test_task(task_data: dict):
                             last_step = execution_state.task_list[idx].steps[-1]
                             last_step.success = success
                             last_step.result = change_type
+                            if step_shot:
+                                last_step.screenshot_path = step_shot
 
                         store.update_state(job_id, execution_state)
                         manager.send_state_update(job_id, execution_state.to_dict())
 
                     elif state_type == "step_failed":
                         step_num = data.get("step_number", 0)
+                        step_shot = data.get("screenshot_path", "")
 
                         if (
                                 execution_state.current_step
@@ -445,6 +458,8 @@ def execute_test_task(task_data: dict):
                         ):
                             execution_state.current_step.success = False
                             execution_state.current_step.result = data.get("error", "")
+                            if step_shot:
+                                execution_state.current_step.screenshot_path = step_shot
 
                         execution_state.failed_steps += 1
 
@@ -456,6 +471,8 @@ def execute_test_task(task_data: dict):
                             last_step = execution_state.task_list[idx].steps[-1]
                             last_step.success = False
                             last_step.result = data.get("error", "")
+                            if step_shot:
+                                last_step.screenshot_path = step_shot
 
                         store.update_state(job_id, execution_state)
                         manager.send_state_update(job_id, execution_state.to_dict())

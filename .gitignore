@@ -217,3 +217,5 @@ mobile_vision_web/dist/
 
 # macOS
 .DS_Store
+# Superpowers workflow docs (local only)
+docs/superpowers/
