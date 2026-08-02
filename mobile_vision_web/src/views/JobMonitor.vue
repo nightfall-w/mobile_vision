@@ -188,7 +188,7 @@
               <span class="task-count">{{ taskState.task_list?.length || 0 }} 个任务</span>
             </div>
           </template>
-          <div class="subtask-list">
+          <div class="subtask-list" ref="subtaskListRef">
             <div
               v-for="(subtask, index) in taskState.task_list"
               :key="subtask.task_id"
@@ -401,6 +401,7 @@ const replayMaxTimestamp = ref(0)
 const replayActiveSubtaskIndex = ref(-1)
 const replayStepPointer = ref(0)
 let replayTimer = null
+const subtaskListRef = ref(null)
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
 const expandedSubtasks = ref([])
@@ -1146,6 +1147,20 @@ onUnmounted(() => {
   if (replayTimer) {
     clearInterval(replayTimer)
   }
+})
+
+// 执行过程中，当前子任务变化时自动滚动到可见
+watch(() => taskState.value.current_task_index, (newIdx) => {
+  if (isReplaying.value) return  // 回放时已由 loadReplayScreenshot 处理
+  if (newIdx === undefined || newIdx === null) return
+  nextTick(() => {
+    if (subtaskListRef.value) {
+      const active = subtaskListRef.value.querySelector('.subtask-item.active')
+      if (active) {
+        active.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }
+  })
 })
 
 watch(currentScreenshot, (newVal) => {
