@@ -27,6 +27,7 @@ class Step:
     text: Optional[str] = None
     direction: Optional[str] = None
     assertion: Optional[dict] = None
+    screenshot_path: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
