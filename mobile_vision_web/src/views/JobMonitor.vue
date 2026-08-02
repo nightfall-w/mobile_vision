@@ -942,8 +942,12 @@ const loadReplayScreenshot = async (index) => {
 
 const startReplayTimer = () => {
   if (replayTimer) clearInterval(replayTimer)
-  replayTimer = setInterval(async () => {
-    if (isReplayPaused.value) return
+
+  const tick = () => {
+    if (isReplayPaused.value) {
+      replayTimer = setTimeout(tick, 100)
+      return
+    }
 
     const nextIndex = replayIndex.value + 1
     if (nextIndex >= replayScreenshots.value.length) {
@@ -952,8 +956,18 @@ const startReplayTimer = () => {
       return
     }
 
-    await loadReplayScreenshot(nextIndex)
-  }, 667)
+    // 根据实际截图时间差计算播放间隔（3X 倍速）
+    const current = replayScreenshots.value[replayIndex.value]
+    const next = replayScreenshots.value[nextIndex]
+    const gap = (next.mtime || next.timestamp) - (current.mtime || current.timestamp)
+    const delay = Math.max(100, Math.min(gap / 3, 5000))  // 最少100ms，最多5s
+
+    loadReplayScreenshot(nextIndex).then(() => {
+      replayTimer = setTimeout(tick, delay)
+    })
+  }
+
+  replayTimer = setTimeout(tick, 667)
 }
 
 const toggleReplayPause = () => {
