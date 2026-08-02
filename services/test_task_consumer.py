@@ -380,6 +380,11 @@ def execute_test_task(task_data: dict):
                         manager.send_state_update(job_id, execution_state.to_dict())
 
                     elif state_type == "step_executing":
+                        # 捕获当前截图路径
+                        screenshot_filename = None
+                        if hasattr(interface, "last_screenshot_path") and interface.last_screenshot_path:
+                            screenshot_filename = os.path.basename(interface.last_screenshot_path)
+
                         step = Step(
                             step_number=data.get("step_number", 0),
                             action=data.get("action", ""),
@@ -391,6 +396,7 @@ def execute_test_task(task_data: dict):
                             assertion=data.get("assertion"),
                             result="执行中...",
                             success=True,
+                            screenshot_path=screenshot_filename,  # 新增
                         )
                         execution_state.current_step = step
                         execution_state.total_steps += 1
