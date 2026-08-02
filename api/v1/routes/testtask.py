@@ -287,6 +287,60 @@ def _read_latest_screenshot(job_id: int) -> str:
         return ""
 
 
+@router.get("/job/{job_id}/screenshot/file/{filename}")
+async def get_job_screenshot_file(job_id: int, filename: str):
+    """获取指定截图文件"""
+    screenshot_dir = os.path.join(str(SCREENSHOTS_DIR), str(job_id))
+    file_path = os.path.join(screenshot_dir, filename)
+
+    # 安全校验：防止路径穿越
+    real_dir = os.path.realpath(screenshot_dir)
+    real_path = os.path.realpath(file_path)
+    if not real_path.startswith(real_dir):
+        return api_response(code=HttpErrcode.PARAMS_ERROR, message="非法的文件路径")
+
+    if not os.path.exists(file_path) or not filename.endswith(".png"):
+        return api_response(data={"screenshot_base64": ""})
+
+    try:
+        with open(file_path, "rb") as f:
+            screenshot_base64 = base64.b64encode(f.read()).decode("utf-8")
+            return api_response(data={"screenshot_base64": screenshot_base64})
+    except Exception as e:
+        print(f"读取截图失败: {e}")
+        return api_response(data={"screenshot_base64": ""})
+
+
+@router.get("/job/{job_id}/screenshots/list")
+async def get_job_screenshots_list(job_id: int):
+    """获取Job的所有截图文件列表"""
+    screenshot_dir = os.path.join(str(SCREENSHOTS_DIR), str(job_id))
+
+    if not os.path.exists(screenshot_dir):
+        return api_response(data={"screenshots": [], "total": 0})
+
+    files = [f for f in os.listdir(screenshot_dir) if f.endswith(".png")]
+    if not files:
+        return api_response(data={"screenshots": [], "total": 0})
+
+    # 按修改时间排序
+    files.sort(key=lambda f: os.path.getmtime(os.path.join(screenshot_dir, f)))
+
+    screenshots = []
+    for f in files:
+        file_path = os.path.join(screenshot_dir, f)
+        mtime = os.path.getmtime(file_path)
+        # 从文件名提取时间戳（文件名格式：{timestamp_ms}.png）
+        timestamp = int(f.replace(".png", "")) if f.replace(".png", "").isdigit() else int(mtime * 1000)
+        screenshots.append({
+            "filename": f,
+            "timestamp": timestamp,
+            "mtime": int(mtime * 1000),
+        })
+
+    return api_response(data={"screenshots": screenshots, "total": len(screenshots)})
+
+
 @router.post("/job/{job_id}/abort")
 def abort_job(job_id: int = Path(..., description="Job ID"), db: Session = Depends(get_sync_db)):
     """放弃单个 Job"""
