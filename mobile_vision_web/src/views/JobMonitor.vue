@@ -194,17 +194,24 @@
               :key="subtask.task_id"
               class="subtask-item"
               :class="{
-                'active': index === taskState.current_task_index,
-                'completed': subtask.state === 'completed',
-                'failed': subtask.state === 'failed'
+                'active': isReplaying ? getSubtaskReplayState(index) === 'active' : index === taskState.current_task_index,
+                'completed': isReplaying ? getSubtaskReplayState(index) === 'completed' : subtask.state === 'completed',
+                'failed': !isReplaying && subtask.state === 'failed'
               }"
             >
               <div class="subtask-header" @click="toggleSubtaskExpand(index)">
                 <div class="subtask-status">
-                  <el-icon v-if="subtask.state === 'completed'" class="status-icon success"><SuccessFilled /></el-icon>
-                  <el-icon v-else-if="subtask.state === 'failed'" class="status-icon danger"><CircleCloseFilled /></el-icon>
-                  <el-icon v-else-if="index === taskState.current_task_index" class="status-icon running"><Loading /></el-icon>
-                  <el-icon v-else class="status-icon pending"><More /></el-icon>
+                  <template v-if="isReplaying">
+                    <el-icon v-if="getSubtaskReplayState(index) === 'completed'" class="status-icon success"><SuccessFilled /></el-icon>
+                    <el-icon v-else-if="getSubtaskReplayState(index) === 'active'" class="status-icon running"><Loading /></el-icon>
+                    <el-icon v-else class="status-icon pending"><More /></el-icon>
+                  </template>
+                  <template v-else>
+                    <el-icon v-if="subtask.state === 'completed'" class="status-icon success"><SuccessFilled /></el-icon>
+                    <el-icon v-else-if="subtask.state === 'failed'" class="status-icon danger"><CircleCloseFilled /></el-icon>
+                    <el-icon v-else-if="index === taskState.current_task_index" class="status-icon running"><Loading /></el-icon>
+                    <el-icon v-else class="status-icon pending"><More /></el-icon>
+                  </template>
                 </div>
                 <span class="subtask-index">{{ index + 1 }}</span>
                 <span class="subtask-desc">{{ subtask.description }}</span>
@@ -390,6 +397,7 @@ const isReplayPaused = ref(false)
 const replayScreenshots = ref([])
 const replayIndex = ref(0)
 const replayMaxTimestamp = ref(0)
+const replayActiveSubtaskIndex = ref(-1)
 let replayTimer = null
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
@@ -895,6 +903,28 @@ const findStepByScreenshotFilename = (filename) => {
   return null
 }
 
+const getSubtaskReplayState = (index) => {
+  if (!isReplaying.value) return null
+  if (index < replayActiveSubtaskIndex.value) return 'completed'
+  if (index === replayActiveSubtaskIndex.value) return 'active'
+  return 'pending'
+}
+
+const scrollSubtaskIntoView = () => {
+  const el = document.querySelector('.subtask-item.active')
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
+}
+
+const scrollLogToBottom = () => {
+  if (logListRef.value) {
+    nextTick(() => {
+      logListRef.value.scrollTop = logListRef.value.scrollHeight
+    })
+  }
+}
+
 const goToLiveScreenshot = () => {
   viewingHistoryStep.value = false
   viewingStepNumber.value = null
@@ -914,6 +944,7 @@ const startReplay = async () => {
   isReplayPaused.value = false
   replayScreenshots.value = screenshots
   replayIndex.value = 0
+  replayActiveSubtaskIndex.value = -1
   viewingHistoryStep.value = true
 
   await loadReplayScreenshot(0)
@@ -936,8 +967,36 @@ const loadReplayScreenshot = async (index) => {
     viewingStepNumber.value = matchedStep.step_number
   }
 
+  // 查找步骤所属的子任务，更新回放状态
+  if (matchedStep) {
+    let foundSubtask = -1
+    for (let i = 0; i < taskState.value.task_list.length; i++) {
+      const steps = taskState.value.task_list[i].steps || []
+      if (steps.some(s => s.step_number === matchedStep.step_number)) {
+        foundSubtask = i
+        break
+      }
+    }
+    replayActiveSubtaskIndex.value = foundSubtask
+
+    // 管理子任务展开/折叠：已完成的任务自动收起，当前任务展开
+    if (foundSubtask >= 0) {
+      const newExpanded = [foundSubtask]
+      for (let i = 0; i < foundSubtask; i++) {
+        const idx = expandedSubtasks.value.indexOf(i)
+        if (idx >= 0) newExpanded.push(i)
+      }
+      expandedSubtasks.value = newExpanded
+    }
+  }
+
   // 更新日志过滤时间戳
   replayMaxTimestamp.value = screenshot.mtime || screenshot.timestamp
+
+  // 自动滚动：让当前子任务可见，日志区域滚动到最新
+  await nextTick()
+  scrollSubtaskIntoView()
+  scrollLogToBottom()
 }
 
 const startReplayTimer = () => {
@@ -979,6 +1038,7 @@ const stopReplay = () => {
   isReplayPaused.value = false
   replayScreenshots.value = []
   replayIndex.value = 0
+  replayActiveSubtaskIndex.value = -1
   if (replayTimer) {
     clearInterval(replayTimer)
     replayTimer = null
