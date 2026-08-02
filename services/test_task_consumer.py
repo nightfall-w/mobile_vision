@@ -397,6 +397,7 @@ def execute_test_task(task_data: dict):
                             result="执行中...",
                             success=True,
                             screenshot_path=screenshot_filename,  # 新增
+                            timestamp=datetime.now().isoformat(),
                         )
                         execution_state.current_step = step
                         execution_state.total_steps += 1
