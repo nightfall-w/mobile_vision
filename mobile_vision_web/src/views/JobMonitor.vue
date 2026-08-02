@@ -398,6 +398,7 @@ const replayScreenshots = ref([])
 const replayIndex = ref(0)
 const replayMaxTimestamp = ref(0)
 const replayActiveSubtaskIndex = ref(-1)
+const replayStepPointer = ref(0)
 let replayTimer = null
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
@@ -892,17 +893,6 @@ const handleStepClick = async (step) => {
   historyStepLoading.value = false
 }
 
-const findStepByScreenshotFilename = (filename) => {
-  for (const subtask of taskState.value.task_list || []) {
-    for (const step of subtask.steps || []) {
-      if (step.screenshot_path === filename) {
-        return step
-      }
-    }
-  }
-  return null
-}
-
 const getSubtaskReplayState = (index) => {
   if (!isReplaying.value) return null
   if (index < replayActiveSubtaskIndex.value) return 'completed'
@@ -945,6 +935,7 @@ const startReplay = async () => {
   replayScreenshots.value = screenshots
   replayIndex.value = 0
   replayActiveSubtaskIndex.value = -1
+  replayStepPointer.value = 0
   viewingHistoryStep.value = true
 
   await loadReplayScreenshot(0)
@@ -961,33 +952,35 @@ const loadReplayScreenshot = async (index) => {
     historyScreenshot.value = base64
   }
 
-  // 匹配当前截图对应的步骤，高亮显示
-  const matchedStep = findStepByScreenshotFilename(filename)
-  if (matchedStep) {
-    viewingStepNumber.value = matchedStep.step_number
+  // 按回放进度比例匹配步骤（避免 screenshot_path 重复导致映射错误）
+  const allSteps = []
+  for (let i = 0; i < taskState.value.task_list.length; i++) {
+    for (const step of taskState.value.task_list[i].steps || []) {
+      allSteps.push({ step, subtaskIdx: i })
+    }
   }
 
-  // 查找步骤所属的子任务，更新回放状态
-  if (matchedStep) {
-    let foundSubtask = -1
-    for (let i = 0; i < taskState.value.task_list.length; i++) {
-      const steps = taskState.value.task_list[i].steps || []
-      if (steps.some(s => s.step_number === matchedStep.step_number)) {
-        foundSubtask = i
-        break
-      }
-    }
-    replayActiveSubtaskIndex.value = foundSubtask
+  if (allSteps.length > 0) {
+    // 计算当前回放进度对应的步骤位置
+    const targetIdx = Math.min(
+      Math.floor((replayIndex.value / replayScreenshots.value.length) * allSteps.length),
+      allSteps.length - 1
+    )
+    // 确保只向前移动，不后退
+    const stepIdx = Math.max(targetIdx, replayStepPointer.value)
+    replayStepPointer.value = stepIdx
+
+    const entry = allSteps[stepIdx]
+    viewingStepNumber.value = entry.step.step_number
+    replayActiveSubtaskIndex.value = entry.subtaskIdx
 
     // 管理子任务展开/折叠：已完成的任务自动收起，当前任务展开
-    if (foundSubtask >= 0) {
-      const newExpanded = [foundSubtask]
-      for (let i = 0; i < foundSubtask; i++) {
-        const idx = expandedSubtasks.value.indexOf(i)
-        if (idx >= 0) newExpanded.push(i)
-      }
-      expandedSubtasks.value = newExpanded
+    const newExpanded = [entry.subtaskIdx]
+    for (let i = 0; i < entry.subtaskIdx; i++) {
+      const idx = expandedSubtasks.value.indexOf(i)
+      if (idx >= 0) newExpanded.push(i)
     }
+    expandedSubtasks.value = newExpanded
   }
 
   // 更新日志过滤时间戳
@@ -1039,6 +1032,7 @@ const stopReplay = () => {
   replayScreenshots.value = []
   replayIndex.value = 0
   replayActiveSubtaskIndex.value = -1
+  replayStepPointer.value = 0
   if (replayTimer) {
     clearInterval(replayTimer)
     replayTimer = null
@@ -1048,6 +1042,7 @@ const stopReplay = () => {
 
 const handleReplaySliderChange = (val) => {
   if (!isReplaying.value) return
+  replayStepPointer.value = 0  // 拖动进度条时重新计算步骤位置
   loadReplayScreenshot(val)
 }
 
