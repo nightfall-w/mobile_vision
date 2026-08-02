@@ -365,8 +365,17 @@ const logs = ref([])
 const showThinking = ref(false)
 const hasThinkingLogs = computed(() => logs.value.some(l => l.level === 'THINKING'))
 const filteredLogs = computed(() => {
-  if (showThinking.value) return logs.value
-  return logs.value.filter(l => l.level !== 'THINKING')
+  let result = logs.value
+  if (!showThinking.value) {
+    result = result.filter(l => l.level !== 'THINKING')
+  }
+  if (isReplaying.value && replayMaxTimestamp.value) {
+    result = result.filter(l => {
+      const logTime = l.timestamp ? new Date(l.timestamp).getTime() : 0
+      return logTime <= replayMaxTimestamp.value
+    })
+  }
+  return result
 })
 const currentScreenshot = ref('')
 // 历史截图相关
@@ -380,6 +389,7 @@ const isReplaying = ref(false)
 const isReplayPaused = ref(false)
 const replayScreenshots = ref([])
 const replayIndex = ref(0)
+const replayMaxTimestamp = ref(0)
 let replayTimer = null
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
@@ -874,10 +884,22 @@ const handleStepClick = async (step) => {
   historyStepLoading.value = false
 }
 
+const findStepByScreenshotFilename = (filename) => {
+  for (const subtask of taskState.value.task_list || []) {
+    for (const step of subtask.steps || []) {
+      if (step.screenshot_path === filename) {
+        return step
+      }
+    }
+  }
+  return null
+}
+
 const goToLiveScreenshot = () => {
   viewingHistoryStep.value = false
   viewingStepNumber.value = null
   historyScreenshot.value = ''
+  replayMaxTimestamp.value = 0
   fetchScreenshot()
 }
 
@@ -901,11 +923,21 @@ const startReplay = async () => {
 const loadReplayScreenshot = async (index) => {
   if (index < 0 || index >= replayScreenshots.value.length) return
   replayIndex.value = index
-  const filename = replayScreenshots.value[index].filename
+  const screenshot = replayScreenshots.value[index]
+  const filename = screenshot.filename
   const base64 = await fetchStepScreenshot(filename)
   if (base64) {
     historyScreenshot.value = base64
   }
+
+  // 匹配当前截图对应的步骤，高亮显示
+  const matchedStep = findStepByScreenshotFilename(filename)
+  if (matchedStep) {
+    viewingStepNumber.value = matchedStep.step_number
+  }
+
+  // 更新日志过滤时间戳
+  replayMaxTimestamp.value = screenshot.mtime || screenshot.timestamp
 }
 
 const startReplayTimer = () => {
