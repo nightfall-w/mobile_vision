@@ -45,6 +45,22 @@
         >
           放弃任务
         </el-button>
+        <el-button
+          v-if="(jobDetail.status === 'completed' || jobDetail.status === 'failed' || jobDetail.status === 'aborted') && !isReplaying"
+          type="primary"
+          @click="startReplay"
+        >
+          <el-icon><VideoPlay /></el-icon>
+          回放
+        </el-button>
+        <el-button
+          v-if="isReplaying"
+          :type="isReplayPaused ? 'primary' : 'warning'"
+          @click="toggleReplayPause"
+        >
+          <el-icon><VideoPause /></el-icon>
+          {{ isReplayPaused ? '继续' : '暂停' }}
+        </el-button>
         <el-tag :type="statusTagType" size="large" effect="dark" class="status-tag">
           <el-icon v-if="jobDetail.status === 'running'" class="is-loading"><Loading /></el-icon>
           {{ statusText }}
@@ -66,21 +82,54 @@
               </el-button>
             </div>
           </template>
-          <div class="screenshot-container" :class="{ 'no-screenshot': !currentScreenshot }">
+          <div class="screenshot-container" :class="{ 'no-screenshot': !displayScreenshot }">
+            <!-- 历史截图/回放指示条 -->
+            <div v-if="viewingHistoryStep" class="screenshot-indicator">
+              <span v-if="isReplaying">
+                <el-icon><VideoPlay /></el-icon>
+                回放中 {{ replayIndex + 1 }}/{{ replayScreenshots.length }}
+              </span>
+              <span v-else>
+                <el-icon><Picture /></el-icon>
+                历史截图 - 步骤 {{ viewingStepNumber }}
+              </span>
+              <el-button size="small" text @click="stopReplay" v-if="isReplaying">
+                <el-icon><Close /></el-icon>
+              </el-button>
+              <el-button size="small" text @click="goToLiveScreenshot" v-else>
+                返回实时
+              </el-button>
+            </div>
             <img
-              v-if="currentScreenshot"
-              :src="'data:image/png;base64,' + currentScreenshot"
+              v-if="displayScreenshot"
+              :src="'data:image/png;base64,' + displayScreenshot"
               alt="设备截图"
               class="screenshot-img"
               ref="screenshotImgRef"
               @load="handleScreenshotLoad"
             />
+            <div v-else-if="historyStepLoading" class="screenshot-placeholder">
+              <el-icon size="64" class="is-loading"><Loading /></el-icon>
+              <span>加载中...</span>
+            </div>
             <div v-else class="screenshot-placeholder">
               <el-icon size="64"><Picture /></el-icon>
-              <span>暂无截图</span>
+              <span>{{ viewingHistoryStep ? '该步骤无截图' : '暂无截图' }}</span>
             </div>
+            <!-- 回放进度条 -->
+            <div v-if="isReplaying && replayScreenshots.length > 1" class="replay-progress">
+              <el-slider
+                :model-value="replayIndex"
+                :max="replayScreenshots.length - 1"
+                :step="1"
+                :show-tooltip="false"
+                size="small"
+                @change="handleReplaySliderChange"
+              />
+            </div>
+            <!-- 原有的点击标记 -->
             <div
-              v-if="currentScreenshot && showMarker && taskState.current_step?.x && taskState.current_step?.y"
+              v-if="displayScreenshot && showMarker && taskState.current_step?.x && taskState.current_step?.y && !viewingHistoryStep"
               class="click-marker"
               :style="markerStyle"
             >
@@ -181,11 +230,18 @@
                   v-for="step in subtask.steps"
                   :key="step.step_number"
                   class="step-item"
-                  :class="{ 'success': step.success, 'failed': !step.success }"
+                  :class="{
+                    'success': step.success,
+                    'failed': !step.success,
+                    'has-screenshot': step.screenshot_path,
+                    'active-step': viewingHistoryStep && viewingStepNumber === step.step_number
+                  }"
+                  @click="handleStepClick(step)"
                 >
                   <span class="step-number">{{ step.step_number }}</span>
                   <span class="step-action">{{ step.action }}</span>
                   <span class="step-desc">{{ step.description }}</span>
+                  <el-icon v-if="step.screenshot_path" class="step-camera-icon"><Camera /></el-icon>
                   <el-icon v-if="step.success" class="step-icon success"><SuccessFilled /></el-icon>
                   <el-icon v-else class="step-icon failed"><CircleCloseFilled /></el-icon>
                 </div>
@@ -274,7 +330,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, Aim, Location, View, Close, Cpu } from '@element-plus/icons-vue'
+import { Back, SuccessFilled, CircleCloseFilled, Loading, More, Document, Monitor, List, Tickets, PictureFilled, Picture, RefreshRight, Timer, TrendCharts, Aim, Location, View, Close, Cpu, Camera, VideoPlay, VideoPause } from '@element-plus/icons-vue'
 import axios from '../network/axios'
 import { abortTestJob } from '../network/api'
 import PageStructureViewer from '../components/PageStructureViewer.vue'
@@ -313,6 +369,18 @@ const filteredLogs = computed(() => {
   return logs.value.filter(l => l.level !== 'THINKING')
 })
 const currentScreenshot = ref('')
+// 历史截图相关
+const historyScreenshot = ref('')
+const viewingHistoryStep = ref(false)
+const viewingStepNumber = ref(null)
+const historyStepLoading = ref(false)
+
+// 回放相关
+const isReplaying = ref(false)
+const isReplayPaused = ref(false)
+const replayScreenshots = ref([])
+const replayIndex = ref(0)
+let replayTimer = null
 const logListRef = ref(null)
 const screenshotImgRef = ref(null)
 const expandedSubtasks = ref([])
@@ -409,6 +477,11 @@ const markerStyle = computed(() => {
     left: scaledX + 'px',
     top: scaledY + 'px'
   }
+})
+
+const displayScreenshot = computed(() => {
+  if (viewingHistoryStep.value) return historyScreenshot.value
+  return currentScreenshot.value
 })
 
 const goBack = () => {
@@ -717,6 +790,31 @@ const fetchJobDetail = async () => {
   }
 }
 
+const fetchStepScreenshot = async (filename) => {
+  if (!filename) return ''
+  try {
+    const res = await axios.get(`/api/v1/testtask/job/${jobId.value}/screenshot/file/${filename}`)
+    if (res.code === 0 && res.data && res.data.screenshot_base64) {
+      return res.data.screenshot_base64
+    }
+  } catch (e) {
+    console.error('获取步骤截图失败:', e)
+  }
+  return ''
+}
+
+const fetchJobScreenshotsList = async () => {
+  try {
+    const res = await axios.get(`/api/v1/testtask/job/${jobId.value}/screenshots/list`)
+    if (res.code === 0 && res.data) {
+      return res.data.screenshots || []
+    }
+  } catch (e) {
+    console.error('获取截图列表失败:', e)
+  }
+  return []
+}
+
 const scrollToBottom = () => {
   nextTick(() => {
     if (logListRef.value) {
@@ -749,6 +847,102 @@ const handleAbortJob = async () => {
       ElMessage.error('操作失败')
     }
   }
+}
+
+const handleStepClick = async (step) => {
+  // 如果正在回放，停止回放
+  if (isReplaying.value) {
+    stopReplay()
+  }
+
+  if (!step.screenshot_path) {
+    ElMessage.info('该步骤没有关联的截图')
+    return
+  }
+
+  viewingStepNumber.value = step.step_number
+  viewingHistoryStep.value = true
+  historyStepLoading.value = true
+
+  const base64 = await fetchStepScreenshot(step.screenshot_path)
+  if (base64) {
+    historyScreenshot.value = base64
+  } else {
+    historyScreenshot.value = ''
+    ElMessage.info('该步骤的截图文件不存在')
+  }
+  historyStepLoading.value = false
+}
+
+const goToLiveScreenshot = () => {
+  viewingHistoryStep.value = false
+  viewingStepNumber.value = null
+  historyScreenshot.value = ''
+  fetchScreenshot()
+}
+
+const startReplay = async () => {
+  const screenshots = await fetchJobScreenshotsList()
+  if (!screenshots.length) {
+    ElMessage.info('没有可回放的截图')
+    return
+  }
+
+  isReplaying.value = true
+  isReplayPaused.value = false
+  replayScreenshots.value = screenshots
+  replayIndex.value = 0
+  viewingHistoryStep.value = true
+
+  await loadReplayScreenshot(0)
+  startReplayTimer()
+}
+
+const loadReplayScreenshot = async (index) => {
+  if (index < 0 || index >= replayScreenshots.value.length) return
+  replayIndex.value = index
+  const filename = replayScreenshots.value[index].filename
+  const base64 = await fetchStepScreenshot(filename)
+  if (base64) {
+    historyScreenshot.value = base64
+  }
+}
+
+const startReplayTimer = () => {
+  if (replayTimer) clearInterval(replayTimer)
+  replayTimer = setInterval(async () => {
+    if (isReplayPaused.value) return
+
+    const nextIndex = replayIndex.value + 1
+    if (nextIndex >= replayScreenshots.value.length) {
+      stopReplay()
+      ElMessage.success('回放结束')
+      return
+    }
+
+    await loadReplayScreenshot(nextIndex)
+  }, 667)
+}
+
+const toggleReplayPause = () => {
+  isReplayPaused.value = !isReplayPaused.value
+}
+
+const stopReplay = () => {
+  isReplaying.value = false
+  isReplayPaused.value = false
+  replayScreenshots.value = []
+  replayIndex.value = 0
+  if (replayTimer) {
+    clearInterval(replayTimer)
+    replayTimer = null
+  }
+  goToLiveScreenshot()
+}
+
+const handleReplaySliderChange = (val) => {
+  if (!isReplaying.value) return
+  loadReplayScreenshot(val)
 }
 
 onMounted(async () => {
@@ -801,6 +995,9 @@ onUnmounted(() => {
   }
   if (markerTimer) {
     clearTimeout(markerTimer)
+  }
+  if (replayTimer) {
+    clearInterval(replayTimer)
   }
 })
 
@@ -1578,5 +1775,76 @@ watch(currentScreenshot, (newVal) => {
 
 .empty-icon {
   color: #dcdfe6;
+}
+
+/* 历史截图指示条 */
+.screenshot-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 13px;
+  border-radius: 4px 4px 0 0;
+}
+
+.screenshot-indicator span {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.screenshot-indicator .el-button {
+  color: #fff;
+  flex-shrink: 0;
+}
+
+/* 回放进度条 */
+.replay-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.replay-progress :deep(.el-slider) {
+  width: 100%;
+}
+
+.replay-progress :deep(.el-slider__runway) {
+  margin: 6px 0;
+}
+
+/* 步骤项可点击 */
+.step-item {
+  cursor: pointer;
+}
+
+.step-item.has-screenshot:hover {
+  background: #ecf5ff;
+  border-color: #409eff;
+}
+
+.step-item.active-step {
+  background: #ecf5ff;
+  border: 1px solid #409eff;
+  box-shadow: 0 0 8px rgba(64, 158, 255, 0.3);
+}
+
+/* 步骤截图相机图标 */
+.step-camera-icon {
+  color: #409eff;
+  font-size: 14px;
+  margin-right: 4px;
 }
 </style>
