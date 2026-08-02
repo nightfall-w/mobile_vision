@@ -1,7 +1,7 @@
 """
 测试任务消费者 - 使用 FunBoost 异步执行
 """
-
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -418,6 +418,7 @@ def execute_test_task(task_data: dict):
                         step_num = data.get("step_number", 0)
                         success = data.get("success", True)
                         change_type = data.get("change_type", "")
+                        step_shot = data.get("screenshot_path", "")
 
                         if (
                                 execution_state.current_step
@@ -425,6 +426,8 @@ def execute_test_task(task_data: dict):
                         ):
                             execution_state.current_step.success = success
                             execution_state.current_step.result = change_type
+                            if step_shot:
+                                execution_state.current_step.screenshot_path = step_shot
 
                         if success:
                             execution_state.success_steps += 1
@@ -439,12 +442,15 @@ def execute_test_task(task_data: dict):
                             last_step = execution_state.task_list[idx].steps[-1]
                             last_step.success = success
                             last_step.result = change_type
+                            if step_shot:
+                                last_step.screenshot_path = step_shot
 
                         store.update_state(job_id, execution_state)
                         manager.send_state_update(job_id, execution_state.to_dict())
 
                     elif state_type == "step_failed":
                         step_num = data.get("step_number", 0)
+                        step_shot = data.get("screenshot_path", "")
 
                         if (
                                 execution_state.current_step
@@ -452,6 +458,8 @@ def execute_test_task(task_data: dict):
                         ):
                             execution_state.current_step.success = False
                             execution_state.current_step.result = data.get("error", "")
+                            if step_shot:
+                                execution_state.current_step.screenshot_path = step_shot
 
                         execution_state.failed_steps += 1
 
@@ -463,6 +471,8 @@ def execute_test_task(task_data: dict):
                             last_step = execution_state.task_list[idx].steps[-1]
                             last_step.success = False
                             last_step.result = data.get("error", "")
+                            if step_shot:
+                                last_step.screenshot_path = step_shot
 
                         store.update_state(job_id, execution_state)
                         manager.send_state_update(job_id, execution_state.to_dict())

@@ -4,6 +4,7 @@ Agent控制器
 import asyncio
 import hashlib
 import json
+import os
 import time
 import traceback
 import uuid
@@ -734,6 +735,15 @@ class Agent:
             step_record.action_result = action_result
             step_offset += 1
 
+            # 步骤执行完后主动截图，供历史步骤查看与回放
+            step_screenshot_path = ""
+            try:
+                if hasattr(self.interface, "_take_screenshot"):
+                    step_screenshot_path = await self.interface._take_screenshot()
+            except Exception as e:
+                logger.warning(f"步骤{step_count}执行后截图失败: {e}")
+            step_screenshot_name = os.path.basename(step_screenshot_path) if step_screenshot_path else ""
+
             if not action_result.success:
                 step_record.state = StepState.FAILED
                 task.steps.append(step_record)
@@ -742,7 +752,8 @@ class Agent:
                     "step_number": step_count,
                     "error": action_result.error,
                     "action": action,
-                    "success": False
+                    "success": False,
+                    "screenshot_path": step_screenshot_name
                 })
                 result["steps_executed"] = step_offset
                 result["early_exit"] = True
@@ -757,7 +768,8 @@ class Agent:
             self._report_state("step_completed", {
                 "step_number": step_count,
                 "action": action,
-                "success": True
+                "success": True,
+                "screenshot_path": step_screenshot_name
             })
 
             # 记录操作历史
