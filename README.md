@@ -359,6 +359,27 @@ LLM 拿着这份数据，知道页面上有一个活动弹窗，弹窗里"周二
 
 ---
 
+## ⚠️ 数据库迁移
+
+升级项目后，如果本地数据库缺少新增或变更的字段，需要手动执行对应的 SQL 迁移脚本。迁移脚本位于 `scripts/` 目录下，按编号顺序执行：
+
+| 脚本 | 变更内容 | 新增时间 |
+|------|---------|---------|
+| `migration_001_add_test_metrics.sql` | YOLO 模型表新增 `test_metrics` / `test_status` 字段 | 2026-07-28 |
+| `migration_002_plan_case_relation_nullable.sql` | `plan_case_relation` 表 `device_id` / `device_name` / `device_android_id` / `yolo_model_id` 改为允许 NULL，支持动态分配设备 | 2026-08-02 |
+
+**如果你在项目于 2026年7月28日之前部署，更新代码后需手动执行以下迁移脚本：**
+
+```bash
+# 按顺序执行
+mysql -u <用户名> -p<数据库名> < scripts/migration_001_add_test_metrics.sql
+mysql -u <用户名> -p<数据库名> < scripts/migration_002_plan_case_relation_nullable.sql
+```
+
+> 执行后重启后端服务即可生效。已部署于 2026-07-28 之后的项目只需执行 `migration_002`。
+
+---
+
 ## ⚡ 快速开始
 
 ### 前置条件
