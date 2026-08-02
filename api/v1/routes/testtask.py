@@ -486,10 +486,10 @@ async def job_screenshot_stream(job_id: int, db: Session = Depends(get_sync_db))
                 if job.status in [TaskStatus.COMPLETED.value, TaskStatus.FAILED.value, TaskStatus.ABORTED.value]:
                     break
 
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1)
             except Exception as e:
                 print(f"Screenshot stream error: {e}")
-                await asyncio.sleep(1.5)
+                await asyncio.sleep(1)
 
     headers = {
         "Content-Type": "text/event-stream",

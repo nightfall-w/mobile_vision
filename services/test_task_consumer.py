@@ -315,7 +315,7 @@ def execute_test_task(task_data: dict):
                                     manager.send_screenshot(job_id, screenshot_base64)
                         except Exception as e:
                             print(f"[FunBoost] 更新截图失败: {e}")
-                        await asyncio.sleep(2)
+                        await asyncio.sleep(1)
 
                 screenshot_task = asyncio.create_task(update_screenshot())
 
