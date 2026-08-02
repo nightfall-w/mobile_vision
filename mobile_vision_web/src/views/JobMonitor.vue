@@ -952,7 +952,7 @@ const loadReplayScreenshot = async (index) => {
     historyScreenshot.value = base64
   }
 
-  // 按回放进度比例匹配步骤（避免 screenshot_path 重复导致映射错误）
+  // 按回放进度匹配步骤：优先按时间戳匹配，其次按截图路径，最后按比例定位
   const allSteps = []
   for (let i = 0; i < taskState.value.task_list.length; i++) {
     for (const step of taskState.value.task_list[i].steps || []) {
@@ -961,13 +961,55 @@ const loadReplayScreenshot = async (index) => {
   }
 
   if (allSteps.length > 0) {
-    // 计算当前回放进度对应的步骤位置
-    const targetIdx = Math.min(
-      Math.floor((replayIndex.value / replayScreenshots.value.length) * allSteps.length),
-      allSteps.length - 1
-    )
-    // 确保只向前移动，不后退
-    const stepIdx = Math.max(targetIdx, replayStepPointer.value)
+    let stepIdx = -1
+    const shotTime = screenshot.mtime || screenshot.timestamp || 0
+
+    // 1. 优先按时间戳匹配：找离当前截图时间最近、且时间<=截图的步骤
+    const timedSteps = allSteps
+      .map((entry, idx) => ({ entry, idx, ts: entry.step.timestamp ? new Date(entry.step.timestamp).getTime() : 0 }))
+      .filter(x => x.ts > 0)
+    if (timedSteps.length > 0 && shotTime > 0) {
+      const candidates = timedSteps.filter(x => x.ts <= shotTime)
+      if (candidates.length > 0) {
+        // 取时间最接近截图时刻的那一个
+        stepIdx = candidates.reduce((best, curr) =>
+          shotTime - curr.ts < shotTime - best.ts ? curr : best
+        ).idx
+      } else {
+        // 没有 <= 截图的步骤，取最早的一个
+        stepIdx = timedSteps.reduce((best, curr) =>
+          curr.ts < best.ts ? curr : best
+        ).idx
+      }
+    }
+
+    // 2. 时间戳不可用，尝试通过 screenshot_path 匹配
+    if (stepIdx === -1 && filename) {
+      const matching = allSteps
+        .map((entry, idx) => ({ entry, idx }))
+        .filter(x => x.entry.step.screenshot_path === filename)
+
+      if (matching.length === 1) {
+        stepIdx = matching[0].idx
+      } else if (matching.length > 1) {
+        // 多个步骤共享同一截图，选离当前指针最近的
+        stepIdx = matching.reduce((best, curr) =>
+          Math.abs(curr.idx - replayStepPointer.value) < Math.abs(best.idx - replayStepPointer.value) ? curr : best
+        ).idx
+      }
+    }
+
+    // 3. 都不可用，按回放进度比例定位
+    if (stepIdx === -1) {
+      const targetIdx = Math.min(
+        Math.floor((replayIndex.value / replayScreenshots.value.length) * allSteps.length),
+        allSteps.length - 1
+      )
+      stepIdx = Math.max(targetIdx, replayStepPointer.value)
+    }
+
+    // 确保只向前移动
+    stepIdx = Math.max(stepIdx, replayStepPointer.value)
     replayStepPointer.value = stepIdx
 
     const entry = allSteps[stepIdx]
