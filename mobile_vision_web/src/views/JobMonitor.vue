@@ -241,9 +241,9 @@
                     'success': step.success,
                     'failed': !step.success,
                     'has-screenshot': step.screenshot_path,
-                    'active-step': viewingHistoryStep && viewingStepNumber === step.step_number
+                    'active-step': viewingHistoryStep && viewingStepKey === `${index}-${step.step_number}`
                   }"
-                  @click="handleStepClick(step)"
+                  @click="handleStepClick(step, index)"
                 >
                   <span class="step-number">{{ step.step_number }}</span>
                   <span class="step-action">{{ step.action }}</span>
@@ -389,6 +389,7 @@ const currentScreenshot = ref('')
 const historyScreenshot = ref('')
 const viewingHistoryStep = ref(false)
 const viewingStepNumber = ref(null)
+const viewingStepKey = ref('')  // 唯一标识当前高亮的步骤（子任务索引-步骤编号）
 const historyStepLoading = ref(false)
 
 // 回放相关
@@ -868,7 +869,7 @@ const handleAbortJob = async () => {
   }
 }
 
-const handleStepClick = async (step) => {
+const handleStepClick = async (step, subtaskIndex) => {
   // 如果正在回放，停止回放
   if (isReplaying.value) {
     stopReplay()
@@ -880,6 +881,7 @@ const handleStepClick = async (step) => {
   }
 
   viewingStepNumber.value = step.step_number
+  viewingStepKey.value = `${subtaskIndex}-${step.step_number}`
   viewingHistoryStep.value = true
   historyStepLoading.value = true
 
@@ -918,6 +920,7 @@ const scrollLogToBottom = () => {
 const goToLiveScreenshot = () => {
   viewingHistoryStep.value = false
   viewingStepNumber.value = null
+  viewingStepKey.value = ''
   historyScreenshot.value = ''
   replayMaxTimestamp.value = 0
   fetchScreenshot()
@@ -1014,6 +1017,7 @@ const loadReplayScreenshot = async (index) => {
 
     const entry = allSteps[stepIdx]
     viewingStepNumber.value = entry.step.step_number
+    viewingStepKey.value = `${entry.subtaskIdx}-${entry.step.step_number}`
     replayActiveSubtaskIndex.value = entry.subtaskIdx
 
     // 管理子任务展开/折叠：已完成的任务自动收起，当前任务展开
