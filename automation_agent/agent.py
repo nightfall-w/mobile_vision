@@ -741,6 +741,30 @@ class Agent:
                 if action in ("tap", "long_press") and hasattr(step, 'x') and step.x is not None and step.y is not None:
                     if hasattr(self.interface, "_take_screenshot_with_marker"):
                         step_screenshot_path = await self.interface._take_screenshot_with_marker(step.x, step.y)
+                elif action == "scroll" and hasattr(self.interface, "width") and hasattr(self.interface, "height"):
+                    # 计算滑动起止点绘制标记
+                    width = self.interface.width
+                    height = self.interface.height
+                    dist = max(0.1, min(0.8, step.distance if step.distance is not None else 0.3))
+                    sx = int(width / 2)
+                    sy = int(height * 0.6)
+                    ex = int(width / 2)
+                    ey = int(height * (0.6 - dist))
+                    if step.direction == "down":
+                        sy = int(height * 0.4)
+                        ey = int(height * (0.4 + dist))
+                    elif step.direction == "left":
+                        sx = int(width * 0.8)
+                        ex = int(width * (0.8 - dist))
+                        sy = int(height / 2)
+                        ey = int(height / 2)
+                    elif step.direction == "right":
+                        sx = int(width * 0.2)
+                        ex = int(width * (0.2 + dist))
+                        sy = int(height / 2)
+                        ey = int(height / 2)
+                    if hasattr(self.interface, "_take_screenshot_with_marker"):
+                        step_screenshot_path = await self.interface._take_screenshot_with_marker(sx, sy, end_x=ex, end_y=ey)
                 else:
                     if hasattr(self.interface, "_take_screenshot"):
                         step_screenshot_path = await self.interface._take_screenshot()

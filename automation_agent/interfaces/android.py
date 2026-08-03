@@ -725,8 +725,13 @@ class AndroidInterface:
         logger.debug(f"截图保存到: {screenshot_path}")
         return screenshot_path
 
-    async def _take_screenshot_with_marker(self, x: int, y: int) -> str:
-        """获取截图并在指定坐标绘制点击标记（红色圆点+圆圈）"""
+    async def _take_screenshot_with_marker(self, x: int, y: int, end_x: int = None, end_y: int = None) -> str:
+        """获取截图并在指定坐标绘制操作标记
+
+        Args:
+            x, y: 点击或滑动起始坐标
+            end_x, end_y: 滑动终点坐标（为 None 时只绘制点击标记）
+        """
         from core.config import SCREENSHOTS_DIR
         base_dir = str(SCREENSHOTS_DIR)
 
@@ -754,15 +759,36 @@ class AndroidInterface:
         img = Image.open(io.BytesIO(result.stdout))
         draw = ImageDraw.Draw(img)
 
-        # 绘制红色圆点
-        r = 8
-        draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 0, 0, 180))
-        # 绘制红色圆圈
-        ring_r = 22
-        draw.ellipse([x - ring_r, y - ring_r, x + ring_r, y + ring_r], outline=(255, 0, 0, 200), width=3)
+        if end_x is not None and end_y is not None:
+            # 滑动标记：起始点蓝色圆圈 + 终点绿色圆圈 + 连线
+            sr = 10
+            # 起始点蓝色
+            draw.ellipse([x - sr, y - sr, x + sr, y + sr], fill=(0, 120, 255, 180))
+            draw.ellipse([x - 24, y - 24, x + 24, y + 24], outline=(0, 120, 255, 200), width=3)
+            # 终点绿色
+            draw.ellipse([end_x - sr, end_y - sr, end_x + sr, end_y + sr], fill=(0, 200, 80, 180))
+            draw.ellipse([end_x - 24, end_y - 24, end_x + 24, end_y + 24], outline=(0, 200, 80, 200), width=3)
+            # 连线箭头
+            draw.line([(x, y), (end_x, end_y)], fill=(255, 200, 0, 220), width=4)
+            # 箭头三角形
+            import math
+            angle = math.atan2(end_y - y, end_x - x)
+            arrow_len = 18
+            ax = end_x - arrow_len * math.cos(angle - 0.4)
+            ay = end_y - arrow_len * math.sin(angle - 0.4)
+            bx = end_x - arrow_len * math.cos(angle + 0.4)
+            by = end_y - arrow_len * math.sin(angle + 0.4)
+            draw.polygon([(end_x, end_y), (ax, ay), (bx, by)], fill=(255, 200, 0, 220))
+        else:
+            # 点击标记：红色圆点 + 圆圈
+            r = 8
+            draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 0, 0, 180))
+            ring_r = 22
+            draw.ellipse([x - ring_r, y - ring_r, x + ring_r, y + ring_r], outline=(255, 0, 0, 200), width=3)
 
         timestamp = int(time.time() * 1000)
-        screenshot_path = os.path.join(device_dir, f"{timestamp}_click.png")
+        suffix = "_scroll.png" if end_x is not None else "_click.png"
+        screenshot_path = os.path.join(device_dir, f"{timestamp}{suffix}")
         img.save(screenshot_path, "PNG")
 
         logger.debug(f"带标记截图保存到: {screenshot_path}")
