@@ -738,8 +738,12 @@ class Agent:
             # 步骤执行完后主动截图，供历史步骤查看与回放
             step_screenshot_path = ""
             try:
-                if hasattr(self.interface, "_take_screenshot"):
-                    step_screenshot_path = await self.interface._take_screenshot()
+                if action in ("tap", "long_press") and hasattr(step, 'x') and step.x is not None and step.y is not None:
+                    if hasattr(self.interface, "_take_screenshot_with_marker"):
+                        step_screenshot_path = await self.interface._take_screenshot_with_marker(step.x, step.y)
+                else:
+                    if hasattr(self.interface, "_take_screenshot"):
+                        step_screenshot_path = await self.interface._take_screenshot()
             except Exception as e:
                 logger.warning(f"步骤{step_count}执行后截图失败: {e}")
             step_screenshot_name = os.path.basename(step_screenshot_path) if step_screenshot_path else ""

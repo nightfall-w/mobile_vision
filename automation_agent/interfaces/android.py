@@ -725,6 +725,49 @@ class AndroidInterface:
         logger.debug(f"截图保存到: {screenshot_path}")
         return screenshot_path
 
+    async def _take_screenshot_with_marker(self, x: int, y: int) -> str:
+        """获取截图并在指定坐标绘制点击标记（红色圆点+圆圈）"""
+        from core.config import SCREENSHOTS_DIR
+        base_dir = str(SCREENSHOTS_DIR)
+
+        if self.job_id:
+            device_dir = os.path.join(base_dir, str(self.job_id))
+        else:
+            device_dir = os.path.join(base_dir, self.device_id or "unknown")
+
+        os.makedirs(device_dir, exist_ok=True)
+
+        # 先通过 adb screencap 获取原始字节
+        command = ["adb"]
+        if self.device_id:
+            command.extend(["-s", self.device_id])
+        command.extend(["exec-out", "screencap", "-p"])
+
+        result = self._run_adb_command(command)
+        stderr_text = result.stderr.decode("utf-8", errors="ignore") if result.stderr else ""
+        if re.search(r"^error: device .*?", stderr_text):
+            raise ConnectionError(f"设备 {self.device_id or 'unknown'} 已断连，截图失败")
+
+        import io
+        from PIL import Image, ImageDraw
+
+        img = Image.open(io.BytesIO(result.stdout))
+        draw = ImageDraw.Draw(img)
+
+        # 绘制红色圆点
+        r = 8
+        draw.ellipse([x - r, y - r, x + r, y + r], fill=(255, 0, 0, 180))
+        # 绘制红色圆圈
+        ring_r = 22
+        draw.ellipse([x - ring_r, y - ring_r, x + ring_r, y + ring_r], outline=(255, 0, 0, 200), width=3)
+
+        timestamp = int(time.time() * 1000)
+        screenshot_path = os.path.join(device_dir, f"{timestamp}_click.png")
+        img.save(screenshot_path, "PNG")
+
+        logger.debug(f"带标记截图保存到: {screenshot_path}")
+        return screenshot_path
+
     def _run_adb_command(self, command: List[str]) -> subprocess.CompletedProcess:
         """运行ADB命令"""
         # 清理空字符串
