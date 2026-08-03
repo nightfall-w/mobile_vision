@@ -731,18 +731,13 @@ class Agent:
                 log_parts.append(f"- {step.description}")
                 self._report_log("INFO", " ".join(log_parts))
 
-            action_result = await self._act(step)
-            step_record.action_result = action_result
-            step_offset += 1
-
-            # 步骤执行完后主动截图，供历史步骤查看与回放
+            # 对 tap/long_press/scroll 操作：在动作执行前先截图标记，记录操作前的页面状态
             step_screenshot_path = ""
             try:
                 if action in ("tap", "long_press") and hasattr(step, 'x') and step.x is not None and step.y is not None:
                     if hasattr(self.interface, "_take_screenshot_with_marker"):
                         step_screenshot_path = await self.interface._take_screenshot_with_marker(step.x, step.y)
                 elif action == "scroll" and hasattr(self.interface, "width") and hasattr(self.interface, "height"):
-                    # 计算滑动起止点绘制标记
                     width = self.interface.width
                     height = self.interface.height
                     dist = max(0.1, min(0.8, step.distance if step.distance is not None else 0.3))
@@ -765,11 +760,20 @@ class Agent:
                         ey = int(height / 2)
                     if hasattr(self.interface, "_take_screenshot_with_marker"):
                         step_screenshot_path = await self.interface._take_screenshot_with_marker(sx, sy, end_x=ex, end_y=ey)
-                else:
+            except Exception as e:
+                logger.warning(f"步骤{step_count}操作前截图标记失败: {e}")
+
+            action_result = await self._act(step)
+            step_record.action_result = action_result
+            step_offset += 1
+
+            # 非标记操作（input/wait 等），在动作执行完后截普通图
+            if not step_screenshot_path:
+                try:
                     if hasattr(self.interface, "_take_screenshot"):
                         step_screenshot_path = await self.interface._take_screenshot()
-            except Exception as e:
-                logger.warning(f"步骤{step_count}执行后截图失败: {e}")
+                except Exception as e:
+                    logger.warning(f"步骤{step_count}执行后截图失败: {e}")
             step_screenshot_name = os.path.basename(step_screenshot_path) if step_screenshot_path else ""
 
             if not action_result.success:
