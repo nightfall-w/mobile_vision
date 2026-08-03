@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/YOLOv8-ultralytics-00FFFF?style=for-the-badge&logo=ultralytics" alt="YOLOv8">
   <img src="https://img.shields.io/badge/PyTorch-2.11-EE4C2C?style=for-the-badge&logo=pytorch" alt="PyTorch">
   <img src="https://img.shields.io/badge/ADB-Android-34A853?style=for-the-badge&logo=android" alt="ADB">
+  <img src="https://img.shields.io/badge/MCP-1.0-000000?style=for-the-badge&logo=modelcontextprotocol" alt="MCP">
 </p>
 
 <p align="center">
@@ -27,6 +28,7 @@
 - [技术栈](#-技术栈)
 - [系统架构](#-系统架构)
 - [功能模块](#-功能模块)
+- [MCP 服务器](#-mcp-服务器)
 - [快速开始](#-快速开始)
 - [API 概览](#-api-概览)
 - [项目结构](#-项目结构)
@@ -309,6 +311,7 @@ LLM 拿着这份数据，知道页面上有一个活动弹窗，弹窗里"周二
 | **深度学习** | PyTorch 2.11 |
 | **页面解析** | uiautomator2（DOM 快通道）+ EasyOCR / RapidOCR |
 | **移动端控制** | ADB (Android Debug Bridge) |
+| **MCP 协议** | FastMCP 3.4+ (Model Context Protocol) |
 | **WebSocket** | 实时日志推送与任务监控 |
 
 ---
@@ -356,6 +359,97 @@ LLM 拿着这份数据，知道页面上有一个活动弹窗，弹窗里"周二
 | **空间管理** | 创建/编辑/删除工作空间、管理员配置 |
 | **成员角色** | 管理员/测试工程师/开发工程师/产品/项目经理等多级角色、权限控制 |
 | **数据统计** | 用例/计划/执行多维统计、趋势图表、周期筛选 |
+
+---
+
+## 🤖 MCP 服务器
+
+<p align="center">
+  <strong>将移动端 UI 自动化能力（ADB + YOLO + OCR）暴露为 <a href="https://modelcontextprotocol.io">MCP (Model Context Protocol)</a> 工具，<br>供 Claude Code、Cursor、Gemini CLI 等 AI 客户端直接调用。</strong>
+</p>
+
+MCP 服务器允许 AI 编程助手直接连接并操作你的 Android 设备，实现"AI 助手帮你操作手机"的体验。它基于 **FastMCP** 框架构建，将 MobileVision 的页面识别、元素操作和设备管理能力封装为标准 MCP 工具。
+
+### 安装
+
+**方式一：pip 安装**
+
+```bash
+pip install mcp-mobile-vision
+```
+
+**方式二：源码安装**
+
+```bash
+cd mcp-server
+pip install -e .
+```
+
+### 配置到 Claude Code
+
+```bash
+claude mcp add mobile-vision -- python -m mcp_mobile_vision.server
+```
+
+或手动添加到 `~/.claude.json`：
+
+```json
+{
+  "mcpServers": {
+    "mobile-vision": {
+      "command": "python",
+      "args": ["-m", "mcp_mobile_vision.server"]
+    }
+  }
+}
+```
+
+### 可用工具
+
+| 类别 | 工具 | 说明 |
+|------|------|------|
+| **设备管理** | `list_devices` | 列出所有已连接 ADB 设备 |
+| | `connect_device` | 连接设备（有线/无线 ADB） |
+| | `disconnect_device` | 断开设备连接 |
+| | `get_device_info` | 获取设备详细信息 |
+| **页面识别** | `recognize_page` | ⭐ **推荐** — 双通道识别，返回结构化页面树（JSON，含元素类型、坐标、文本颜色） |
+| | `screenshot` | 截图，可选标记操作坐标 |
+| **操作执行** | `click` | 点击坐标 |
+| | `long_press` | 长按 |
+| | `swipe` | 滑动 |
+| | `input_text` | 输入文字 |
+| | `press_back` | 返回键 |
+| | `press_home` | Home 键 |
+| | `press_enter` | 回车键 |
+| **模型配置** | `set_model` | 指定 YOLO 模型路径 |
+| | `get_model_info` | 获取当前模型信息 |
+
+### 使用示例
+
+配置完成后，在 Claude Code 中可以直接通过自然语言操作手机：
+
+```
+"帮我看看手机屏幕上的内容"
+→ 调用 recognize_page 返回结构化页面树
+
+"点击屏幕中央的搜索框"
+→ 调用 recognize_page 定位元素 → 调用 click 执行点击
+
+"截图看一下"
+→ 调用 screenshot 返回截图
+```
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `MV_YOLO_MODEL_PATH` | `""` | YOLO 模型路径（不配置时仅使用 DOM 快通道） |
+| `MV_OCR_ENGINE` | `rapidocr` | OCR 引擎：`easyocr` 或 `rapidocr` |
+| `MV_ADB_CMD` | `adb` | ADB 命令路径 |
+| `MV_DEVICE_ID` | `""` | 默认设备地址 |
+| `MV_SCREENSHOTS_DIR` | `./screenshots` | 截图存储目录 |
+
+> 更多详情请参阅 [mcp-server/README.md](mcp-server/README.md)。
 
 ---
 
@@ -485,6 +579,22 @@ mobile_vision/
 │   └── init_database.sql            # 数据库初始化 SQL
 ├── docs/                            # 文档
 │   └── deployment.md                # 生产部署指南
+├── mcp-server/                       # MCP 服务器（独立子项目）
+│   ├── src/mcp_mobile_vision/
+│   │   ├── server.py                  # MCP 入口，FastMCP 工具注册
+│   │   ├── adb.py                     # ADB 命令封装
+│   │   ├── recognizer.py              # YOLO + OCR 识别
+│   │   ├── page_builder.py            # 页面结构化构建
+│   │   ├── session.py                 # 会话管理
+│   │   ├── config.py                  # 环境变量配置
+│   │   ├── types.py                   # 类型定义
+│   │   ├── tools/                     # MCP 工具实现
+│   │   │   ├── device.py              # 设备管理工具
+│   │   │   ├── page.py                # 页面识别工具
+│   │   │   └── action.py              # 操作执行工具
+│   │   └── test_tools.py              # 命令行测试入口
+│   ├── pyproject.toml
+│   └── README.md
 ├── mobile_vision_web/               # 前端项目
 │   ├── src/
 │   │   ├── views/                   # 页面组件
