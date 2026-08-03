@@ -674,6 +674,13 @@ mobile_vision/
 
 ## 📅 功能迭代情况
 
+### 2026-08-03 — MCP 服务器发布
+
+- **MCP (Model Context Protocol) 服务器**正式发布，将移动端 UI 自动化能力（ADB + YOLO + OCR）封装为标准 MCP 工具，供 Claude Code、Cursor、Gemini CLI 等 AI 客户端直接调用
+- 支持 `pip install mcp-mobile-vision` 一键安装，或从 `mcp-server/` 源码安装
+- 提供 14 个 MCP 工具：设备管理（`list_devices`、`connect_device`、`disconnect_device`、`get_device_info`）、页面识别（`recognize_page`、`screenshot`）、操作执行（`click`、`long_press`、`swipe`、`input_text`、`press_back`、`press_home`、`press_enter`）和模型配置（`set_model`、`get_model_info`）
+- 支持环境变量配置：`MV_YOLO_MODEL_PATH`、`MV_OCR_ENGINE`、`MV_ADB_CMD`、`MV_DEVICE_ID`、`MV_SCREENSHOTS_DIR`
+
 ### 2026-08-02 — 测试执行监控增强
 
 - 支持测试执行过程 3X 倍速回放，根据实际截图时间差动态播放
