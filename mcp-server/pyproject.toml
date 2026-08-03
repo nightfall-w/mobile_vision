@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-mobile-vision"
+version = "0.1.1"
+description = "MCP server for mobile UI automation via ADB + YOLO + OCR"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "fastmcp>=3.4.0",
+    "ultralytics",
+    "opencv-python",
+    "easyocr",
+    "rapidocr-onnxruntime",
+    "uiautomator2",
+    "Pillow",
+]
+
+[project.urls]
+Homepage = "https://github.com/nightfall-w/mobile_vision"
+
+[tool.setuptools.packages.find]
+where = ["src"]

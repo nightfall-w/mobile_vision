@@ -1,0 +1,11 @@
+# 安装到项目
+pip install -e .
+
+# 或直接安装依赖
+fastmcp>=3.4.0
+ultralytics
+opencv-python
+easyocr
+rapidocr-onnxruntime
+uiautomator2
+Pillow

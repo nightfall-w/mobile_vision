@@ -217,5 +217,10 @@ mobile_vision_web/dist/
 
 # macOS
 .DS_Store
+
+# MCP Server runtime screenshots
+screenshots/
+
 # Superpowers workflow docs (local only)
 docs/superpowers/
+
