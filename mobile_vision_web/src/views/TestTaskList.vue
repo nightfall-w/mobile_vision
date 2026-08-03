@@ -205,10 +205,11 @@
         </div>
         <div class="jd-dialog-header-right">
           <div class="jd-summary-stats">
-            <span class="jd-stat jd-stat-success">{{ jobDialogTask?.completed_jobs || 0 }} 成功</span>
-            <span class="jd-stat jd-stat-danger">{{ jobDialogTask?.failed_jobs || 0 }} 失败</span>
-            <span class="jd-stat jd-stat-warning">{{ jobDialogTask?.aborted_jobs || 0 }} 放弃</span>
-            <span class="jd-stat jd-stat-info">{{ (jobDialogTask?.total_jobs || 0) - (jobDialogTask?.completed_jobs || 0) - (jobDialogTask?.failed_jobs || 0) - (jobDialogTask?.aborted_jobs || 0) }} 等待</span>
+            <span class="jd-stat jd-stat-success">{{ jobCompletedCount }} 成功</span>
+            <span class="jd-stat jd-stat-running">{{ jobRunningCount }} 执行中</span>
+            <span class="jd-stat jd-stat-danger">{{ jobFailedCount }} 失败</span>
+            <span class="jd-stat jd-stat-warning">{{ jobAbortedCount }} 放弃</span>
+            <span class="jd-stat jd-stat-info">{{ jobPendingCount }} 等待</span>
           </div>
           <el-button class="jd-close-btn" :icon="Close" circle size="small" @click="close" />
         </div>
@@ -311,6 +312,23 @@ const deleteTaskDialogVisible = ref(false)
 const deleteTaskData = ref(null)
 const jobDialogVisible = ref(false)
 const jobDialogTask = ref(null)
+
+// 从 jobs 数组实时统计各状态数量，避免依赖可能过时的数据库汇总字段
+const jobCompletedCount = computed(() =>
+  (jobDialogTask.value?.jobs || []).filter(j => j.status === 'completed').length
+)
+const jobFailedCount = computed(() =>
+  (jobDialogTask.value?.jobs || []).filter(j => j.status === 'failed').length
+)
+const jobAbortedCount = computed(() =>
+  (jobDialogTask.value?.jobs || []).filter(j => j.status === 'aborted').length
+)
+const jobRunningCount = computed(() =>
+  (jobDialogTask.value?.jobs || []).filter(j => j.status === 'running').length
+)
+const jobPendingCount = computed(() =>
+  (jobDialogTask.value?.jobs || []).filter(j => j.status === 'pending').length
+)
 
 const fetchWorkspaceDetail = async () => {
   try {
@@ -756,6 +774,7 @@ onMounted(() => {
 }
 
 .jd-stat-success { color: #67c23a; }
+.jd-stat-running { color: #409eff; }
 .jd-stat-danger { color: #f56c6c; }
 .jd-stat-warning { color: #e6a23c; }
 .jd-stat-info { color: #909399; }
