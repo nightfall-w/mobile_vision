@@ -11,6 +11,7 @@ sys.path.insert(0, str(project_root))
 
 import asyncio
 from datetime import datetime, timedelta
+from typing import Optional
 
 from funboost import BoosterParams, BrokerEnum, boost
 
@@ -32,11 +33,33 @@ from utils.task_cancel import check_cancel_signal
 
 
 def get_llm_credential(db, credential_id: int, workspace_id: int):
-    """获取LLM凭证"""
+    """获取可用的LLM凭证（已禁用或已删除的一律不返回）"""
     credential = (
         db.query(LLMCredential).filter(LLMCredential.id == credential_id).first()
     )
+    if not credential:
+        return None
+    if credential.is_deleted:
+        return None
+    if not credential.is_active:
+        return None
     return credential
+
+
+def describe_llm_credential_issue(db, credential_id: int) -> Optional[str]:
+    """检查凭证是否可用，可用返回None，否则返回不可用原因"""
+    if not credential_id:
+        return "未配置LLM凭证"
+    credential = (
+        db.query(LLMCredential).filter(LLMCredential.id == credential_id).first()
+    )
+    if not credential:
+        return "LLM凭证不存在"
+    if credential.is_deleted:
+        return "LLM凭证已删除"
+    if not credential.is_active:
+        return "LLM凭证已禁用"
+    return None
 
 
 def get_test_case(db, case_id: int):
@@ -245,9 +268,10 @@ def execute_test_task(task_data: dict):
             session, job.llm_credential_id, 0
         )  # workspace_id 暂时用0
         if not credential:
-            print(f"[FunBoost] Job {job_id} LLM凭证不存在")
+            reason = describe_llm_credential_issue(session, job.llm_credential_id) or "LLM凭证不存在"
+            print(f"[FunBoost] Job {job_id} {reason}")
             job.status = TaskStatus.FAILED.value
-            job.result = "LLM凭证不存在"
+            job.result = reason
             job.update_time = datetime.now()
             session.commit()
             update_task_status(session, job.task_id, TaskStatus.FAILED.value)

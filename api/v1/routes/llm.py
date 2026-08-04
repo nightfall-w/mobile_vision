@@ -13,7 +13,8 @@ from app.llm.controller import (
     get_all_llm_credentials,
     get_llm_credentials_by_workspace,
     update_llm_credential,
-    delete_llm_credential
+    delete_llm_credential,
+    _UNSET
 )
 from app.llm.models import LLMCredential
 from app.llm.request_models import CreateCredentialRequest, UpdateCredentialRequest, TestCredentialRequest
@@ -41,6 +42,9 @@ def create_credential(
     if api_protocol not in ["anthropic", "openai"]:
         return api_response(code=HttpErrcode.PARAMS_ERROR, message="api_protocol只能是anthropic或openai")
 
+    if not request.api_key or not request.api_key.strip():
+        return api_response(code=HttpErrcode.PARAMS_ERROR, message="新建凭证时API密钥不能为空")
+
     credential = create_llm_credential(
         db=db,
         model=request.model,
@@ -61,13 +65,20 @@ def create_credential(
 @router.get("/list")
 def list_credentials(
     workspace_id: Optional[str] = Query(None),
+    is_active: Optional[int] = Query(None, description="状态筛选(1=启用, 0=禁用)"),
     page_num: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     current_user: UserModel = Depends(get_current_user),
     db: Session = Depends(get_sync_db)
 ):
     """获取凭证列表（不显示api_key，支持分页）"""
-    result = get_all_llm_credentials(db=db, workspace_id=workspace_id, page_num=page_num, page_size=page_size)
+    result = get_all_llm_credentials(
+        db=db,
+        workspace_id=workspace_id,
+        is_active=is_active,
+        page_num=page_num,
+        page_size=page_size
+    )
     data = []
     for credential in result['list']:
         item = credential.to_dict(hide_api_key=True)
@@ -142,13 +153,27 @@ def list_workspace_credentials(
 def test_credential_connection(
     request: TestCredentialRequest,
     current_user: UserModel = Depends(get_current_user),
+    db: Session = Depends(get_sync_db)
 ):
-    """测试LLM凭证连接是否可用"""
+    """测试LLM凭证连接是否可用
+
+    填写了api_key则用填写的密钥测试；编辑场景未填写时，用credential_id对应的库中已保存密钥测试。
+    此接口不会修改数据库中的任何数据。
+    """
+    api_key = (request.api_key or '').strip()
+    if not api_key:
+        if not request.credential_id:
+            return api_response(code=HttpErrcode.PARAMS_ERROR, message="请填写API密钥")
+        credential = get_llm_credential_by_id(db=db, credential_id=request.credential_id)
+        if not credential:
+            return api_response(code=HttpErrcode.NOT_FOUND, message="凭证不存在")
+        api_key = credential.api_key
+
     try:
         model_name = f"{request.api_protocol.lower()}/{request.model}"
         completion(
             model=model_name,
-            api_key=request.api_key,
+            api_key=api_key,
             base_url=request.base_url,
             messages=[{"role": "user", "content": "Hi"}],
             max_tokens=1,
@@ -182,6 +207,8 @@ def update_credential(
         base_url=request.base_url,
         api_protocol=api_protocol,
         is_active=request.is_active,
+        # 仅在请求体显式携带 workspace_id 时才改动所属级别（None = 系统级别，是合法值）
+        workspace_id=(request.workspace_id if 'workspace_id' in request.model_fields_set else _UNSET),
         update_user=current_user.username
     )
 
