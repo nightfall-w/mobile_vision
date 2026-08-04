@@ -241,89 +241,6 @@
         </div>
       </template>
       <el-tabs v-model="activeTab" class="case-tabs" @tab-change="handleTabChange">
-        <el-tab-pane label="添加用例" name="add">
-          <div class="add-case-tab">
-            <div class="tab-toolbar">
-              <div class="toolbar-left">
-                <el-input
-                  v-model="searchKeyword"
-                  placeholder="搜索用例名称"
-                  clearable
-                  size="default"
-                  style="width: 240px;"
-                  @input="handleSearchCases"
-                >
-                  <template #prefix>
-                    <el-icon><Search/></el-icon>
-                  </template>
-                </el-input>
-              </div>
-            </div>
-            <el-table
-              ref="addTableRef"
-              :data="availableCaseList"
-              v-loading="caseLoading"
-              @selection-change="handleSelectionChange"
-              class="case-table"
-              stripe
-              style="width: 100%"
-              height="360"
-            >
-              <el-table-column type="selection" width="50" />
-              <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="level" label="优先级" width="80">
-                <template #default="{ row }">
-                  <el-tag size="small" :type="row.level === 'P0' ? 'danger' : row.level === 'P1' ? 'warning' : 'info'">
-                    {{ row.level }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-              <el-table-column prop="updater_name" label="更新人" width="100" />
-              <el-table-column prop="status" label="状态" width="80">
-                <template #default="{ row }">
-                  <el-tag size="small" :type="row.status === 'completed' ? 'success' : row.status === 'disabled' ? 'info' : 'warning'">
-                    {{ row.status === 'completed' ? '已完成' : row.status === 'disabled' ? '已禁用' : '调试中' }}
-                  </el-tag>
-                </template>
-              </el-table-column>
-            </el-table>
-            <div v-if="selectedToAdd.length > 0" class="batch-config">
-              <div class="batch-config-header">
-                <div class="batch-config-badge">{{ selectedToAdd.length }}</div>
-                <span>已选 <strong>{{ selectedToAdd.length }}</strong> 个用例</span>
-                <span class="batch-config-sep">|</span>
-                <span class="batch-config-hint">统一配置以下参数后批量添加</span>
-              </div>
-              <div class="batch-config-fields">
-                <el-select v-model="batchDeviceId" placeholder="执行设备" size="default" style="width: 200px">
-                  <el-option label="🔄 动态分配（空闲设备）" :value="''" />
-                  <el-option v-for="d in deviceOptions" :key="d.id" :label="`${d.brand} ${d.model} (${d.id})`" :value="d.id" />
-                </el-select>
-                <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 180px">
-                  <el-option v-for="l in llmOptions" :key="l.id" :label="`${l.model} (${l.base_url || 'N/A'})`" :value="l.id" />
-                </el-select>
-                <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 130px">
-                  <el-option v-for="y in yoloOptions" :key="y.id" :label="y.name" :value="y.id" />
-                </el-select>
-                <el-button type="primary" @click="batchAddCases" size="default">
-                  添加 ({{ selectedToAdd.length }})
-                </el-button>
-              </div>
-            </div>
-            <div class="table-pagination">
-              <el-pagination
-                v-model:current-page="casePagination.page_num"
-                v-model:page-size="casePagination.page_size"
-                :page-sizes="[10, 20, 50]"
-                :total="casePagination.total"
-                layout="total, prev, pager, next"
-                @size-change="handleCaseSizeChange"
-                @current-change="handleCaseCurrentChange"
-                size="small"
-              />
-            </div>
-          </div>
-        </el-tab-pane>
         <el-tab-pane label="已关联用例" name="associated">
           <div class="associated-case-tab">
             <div class="associated-header">
@@ -415,6 +332,89 @@
                 </template>
               </el-table-column>
             </el-table>
+          </div>
+        </el-tab-pane>
+        <el-tab-pane label="添加用例" name="add">
+          <div class="add-case-tab">
+            <div class="tab-toolbar">
+              <div class="toolbar-left">
+                <el-input
+                  v-model="searchKeyword"
+                  placeholder="搜索用例名称"
+                  clearable
+                  size="default"
+                  style="width: 240px;"
+                  @input="handleSearchCases"
+                >
+                  <template #prefix>
+                    <el-icon><Search/></el-icon>
+                  </template>
+                </el-input>
+              </div>
+            </div>
+            <el-table
+              ref="addTableRef"
+              :data="availableCaseList"
+              v-loading="caseLoading"
+              @selection-change="handleSelectionChange"
+              class="case-table"
+              stripe
+              style="width: 100%"
+              height="360"
+            >
+              <el-table-column type="selection" width="50" />
+              <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="level" label="优先级" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.level === 'P0' ? 'danger' : row.level === 'P1' ? 'warning' : 'info'">
+                    {{ row.level }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="updater_name" label="更新人" width="100" />
+              <el-table-column prop="status" label="状态" width="80">
+                <template #default="{ row }">
+                  <el-tag size="small" :type="row.status === 'completed' ? 'success' : row.status === 'disabled' ? 'info' : 'warning'">
+                    {{ row.status === 'completed' ? '已完成' : row.status === 'disabled' ? '已禁用' : '调试中' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+            <div v-if="selectedToAdd.length > 0" class="batch-config">
+              <div class="batch-config-header">
+                <div class="batch-config-badge">{{ selectedToAdd.length }}</div>
+                <span>已选 <strong>{{ selectedToAdd.length }}</strong> 个用例</span>
+                <span class="batch-config-sep">|</span>
+                <span class="batch-config-hint">统一配置以下参数后批量添加</span>
+              </div>
+              <div class="batch-config-fields">
+                <el-select v-model="batchDeviceId" placeholder="执行设备" size="default" style="width: 200px">
+                  <el-option label="🔄 动态分配（空闲设备）" :value="''" />
+                  <el-option v-for="d in deviceOptions" :key="d.id" :label="`${d.brand} ${d.model} (${d.id})`" :value="d.id" />
+                </el-select>
+                <el-select v-model="batchLLMId" placeholder="选择LLM" size="default" style="width: 180px">
+                  <el-option v-for="l in llmOptions" :key="l.id" :label="`${l.model} (${l.base_url || 'N/A'})`" :value="l.id" />
+                </el-select>
+                <el-select v-model="batchYOLOId" placeholder="选择YOLO" size="default" style="width: 130px">
+                  <el-option v-for="y in yoloOptions" :key="y.id" :label="y.name" :value="y.id" />
+                </el-select>
+                <el-button type="primary" @click="batchAddCases" size="default">
+                  添加 ({{ selectedToAdd.length }})
+                </el-button>
+              </div>
+            </div>
+            <div class="table-pagination">
+              <el-pagination
+                v-model:current-page="casePagination.page_num"
+                v-model:page-size="casePagination.page_size"
+                :page-sizes="[10, 20, 50]"
+                :total="casePagination.total"
+                layout="total, prev, pager, next"
+                @size-change="handleCaseSizeChange"
+                @current-change="handleCaseCurrentChange"
+                size="small"
+              />
+            </div>
           </div>
         </el-tab-pane>
       </el-tabs>
@@ -817,7 +817,7 @@ const resetForm = () => {
 }
 
 const handleDialogOpen = async () => {
-  activeTab.value = 'add'
+  activeTab.value = 'associated'
   selectedToAdd.value = []
   selectedToRemove.value = []
   casePagination.page_num = 1
