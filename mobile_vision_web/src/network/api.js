@@ -237,6 +237,12 @@ export function getLLMCredentialList(params) {
   return request.get('/api/v1/llm/credential/list', {page_num, page_size, ...otherParams});
 }
 
+// 获取指定工作空间可用的凭证（含系统级别，已过滤禁用与已删除）
+export function getWorkspaceLLMCredentials(params) {
+  const {page_num = 1, page_size = 100, ...otherParams} = params;
+  return request.get('/api/v1/llm/credential/workspace-credentials', {page_num, page_size, ...otherParams});
+}
+
 export function getLLMCredentialWithKey(id) {
   return request.get('/api/v1/llm/credential/detail-with-key', {id});
 }

@@ -3,11 +3,14 @@
 @Description：LLM凭证控制器
 @Author：baojun.wang
 """
-from typing import List, Optional
+from typing import List, Optional, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, desc
 
 from app.llm.models import LLMCredential
+
+# 哨兵值：区分"参数未传"与"显式传了None"（None 对 workspace_id 意为系统级别）
+_UNSET = object()
 
 
 def create_llm_credential(
@@ -52,11 +55,19 @@ def get_llm_credential_by_id_with_key(db: Session, credential_id: int) -> Option
     ).first()
 
 
-def get_all_llm_credentials(db: Session, workspace_id: Optional[str] = None, page_num: int = 1, page_size: int = 10) -> dict:
+def get_all_llm_credentials(
+    db: Session,
+    workspace_id: Optional[str] = None,
+    is_active: Optional[int] = None,
+    page_num: int = 1,
+    page_size: int = 10
+) -> dict:
     """获取所有凭证（支持分页，不含已删除）"""
     query = db.query(LLMCredential).filter(
         LLMCredential.is_deleted == 0
     )
+    if is_active is not None:
+        query = query.filter(LLMCredential.is_active == is_active)
     if workspace_id is None:
         pass
     elif workspace_id == 'system':
@@ -95,9 +106,13 @@ def update_llm_credential(
     base_url: Optional[str] = None,
     api_protocol: Optional[str] = None,
     is_active: Optional[bool] = None,
+    workspace_id: Any = _UNSET,
     update_user: str = ""
 ) -> bool:
-    """更新凭证信息"""
+    """更新凭证信息
+
+    workspace_id 的 None 是合法值（系统级别），故用 _UNSET 表示"本次不修改所属级别"。
+    """
     credential = db.query(LLMCredential).filter(LLMCredential.id == credential_id).first()
     if not credential:
         return False
@@ -112,6 +127,8 @@ def update_llm_credential(
         credential.api_protocol = api_protocol
     if is_active is not None:
         credential.is_active = int(is_active)
+    if workspace_id is not _UNSET:
+        credential.workspace_id = workspace_id
     credential.update_user = update_user
 
     db.commit()

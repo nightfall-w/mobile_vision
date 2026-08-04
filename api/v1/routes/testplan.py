@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from api.v1.routes.testcase import get_user_nickname
 from app.device.devices_models import AndroidDevice
+from app.llm.models import LLMCredential
 from app.testcase.models import TestCase
 from app.testplan.device_queue import add_task_to_device_queue, pop_next_task
 from app.testplan.models import DeviceLock, PlanCaseRelation, TestPlan
@@ -109,6 +110,32 @@ async def get_plan_detail(plan_id: int, db: Session = Depends(get_sync_db)):
             relation_dict["updater_name"] = ""
             relation_dict["case_level"] = ""
             relation_dict["status"] = ""
+
+        # 补充LLM凭证名称与可用状态，前端无需再从下拉列表反查（不可用的凭证不在下拉列表中）
+        # llm_unavailable_reason: disabled=已禁用 deleted=已删除 missing=不存在 foreign=非本空间
+        relation_dict["llm_name"] = ""
+        relation_dict["llm_is_active"] = True
+        relation_dict["llm_unavailable_reason"] = None
+        if r.llm_credential_id:
+            credential = db.query(LLMCredential).filter(
+                LLMCredential.id == r.llm_credential_id
+            ).first()
+            if not credential:
+                relation_dict["llm_is_active"] = False
+                relation_dict["llm_unavailable_reason"] = "missing"
+            else:
+                relation_dict["llm_name"] = credential.model
+                if credential.is_deleted:
+                    reason = "deleted"
+                elif not credential.is_active:
+                    reason = "disabled"
+                elif credential.workspace_id is not None and credential.workspace_id != plan.workspace_id:
+                    # 凭证属于其他工作空间，对本计划不可选（系统级凭证 workspace_id 为 None，始终可用）
+                    reason = "foreign"
+                else:
+                    reason = None
+                relation_dict["llm_is_active"] = reason is None
+                relation_dict["llm_unavailable_reason"] = reason
         result_relations.append(relation_dict)
 
     plan_dict = plan.to_dict()
@@ -477,6 +504,39 @@ async def execute_plan(
 
     if not relations:
         return api_response(code=HttpErrcode.PARAMS_ERROR, message="计划中没有关联用例")
+
+    # 前置校验：LLM凭证被禁用/删除时整体拦截，不创建任务，避免产生注定失败的 task 和 job
+    # llm_credential_id 为空或0的旧数据不在此拦截，仍走消费端原有失败路径
+    checked_ids = {r.llm_credential_id for r in relations if r.llm_credential_id}
+    if checked_ids:
+        credential_map = {
+            c.id: c
+            for c in db.query(LLMCredential).filter(LLMCredential.id.in_(checked_ids)).all()
+        }
+        invalid_items = []
+        for relation in relations:
+            if not relation.llm_credential_id:
+                continue
+            credential = credential_map.get(relation.llm_credential_id)
+            if not credential:
+                reason = "凭证不存在"
+            elif credential.is_deleted:
+                reason = "凭证已删除"
+            elif not credential.is_active:
+                reason = "凭证已禁用"
+            elif credential.workspace_id is not None and credential.workspace_id != plan.workspace_id:
+                reason = "凭证不属于本工作空间"
+            else:
+                continue
+            case = db.query(TestCase).filter(TestCase.case_id == relation.case_id).first()
+            case_name = case.case_name if case else f"用例{relation.case_id}"
+            invalid_items.append(f"{case_name}（{credential.model if credential else relation.llm_credential_id}：{reason}）")
+
+        if invalid_items:
+            return api_response(
+                code=HttpErrcode.PARAMS_ERROR,
+                message=f"以下用例的 LLM 凭证不可用，请修改配置后再执行：{'；'.join(invalid_items)}"
+            )
 
     task = NewTestTask(
         workspace_id=plan.workspace_id,

@@ -303,7 +303,10 @@
               </el-table-column>
               <el-table-column label="LLM" min-width="120">
                 <template #default="{ row }">
-                  <span class="config-text">{{ getLLMName(row.llm_credential_id) || '-' }}</span>
+                  <span class="config-text">{{ row.llm_name || getLLMName(row.llm_credential_id) || '-' }}</span>
+                  <el-tag v-if="row.llm_credential_id && row.llm_is_active === false" size="small" type="danger" effect="plain" class="llm-disabled-tag">
+                    {{ llmUnavailableText(row.llm_unavailable_reason) }}
+                  </el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="YOLO" width="200">
@@ -513,12 +516,16 @@
               </template>
               <el-select v-model="editRelationForm.llm_credential_id" placeholder="选择 LLM" clearable style="width: 100%">
                 <el-option
-                  v-for="l in llmOptions"
+                  v-for="l in editRelationLLMOptions"
                   :key="l.id"
-                  :label="`${l.model} (${l.base_url || 'N/A'})`"
+                  :label="l.label"
                   :value="l.id"
+                  :disabled="l.disabled"
                 />
               </el-select>
+              <div v-if="editRelationForm.llm_credential_id && editRelationForm.llm_is_active === false" class="er-field-warning">
+                {{ llmWarningText }}
+              </div>
             </el-form-item>
             <el-form-item>
               <template #label>
@@ -618,7 +625,7 @@ import {
   updateCaseRelation,
   removeCaseRelation,
   getDeviceList,
-  getLLMCredentialList,
+  getWorkspaceLLMCredentials,
   getModelsList,
   getTestCaseList,
   getWorkspaceDetail
@@ -680,7 +687,49 @@ const editRelationForm = reactive({
   reasoning_effort: null,
   case_name: '',
   case_level: '',
-  status: ''
+  status: '',
+  llm_name: '',
+  llm_is_active: true,
+  llm_unavailable_reason: null
+})
+
+// 凭证不可用原因的展示文案
+const LLM_UNAVAILABLE_TEXT = {
+  disabled: '已禁用',
+  deleted: '已删除',
+  missing: '凭证不存在',
+  foreign: '非本空间'
+}
+
+const llmUnavailableText = (reason) => LLM_UNAVAILABLE_TEXT[reason] || '不可用'
+
+// 编辑弹窗中不可用凭证的提示语，按原因给出不同说明
+const LLM_WARNING_TEXT = {
+  disabled: '原凭证已被禁用，请重新选择一个可用的 LLM',
+  deleted: '原凭证已被删除，请重新选择一个可用的 LLM',
+  missing: '原凭证不存在，请重新选择一个可用的 LLM',
+  foreign: '原凭证不属于当前工作空间，请重新选择一个可用的 LLM'
+}
+
+const llmWarningText = computed(
+  () => LLM_WARNING_TEXT[editRelationForm.llm_unavailable_reason] || '原凭证不可用，请重新选择一个可用的 LLM'
+)
+
+// 编辑弹窗的LLM下拉：llmOptions 只含本空间（含系统级）的可用凭证，
+// 若当前关联的凭证不可用，则额外注入一条 disabled 项，让用户看得见原配置但无法再次选中
+const editRelationLLMOptions = computed(() => {
+  const options = llmOptions.value.map(l => ({
+    id: l.id,
+    label: `${l.model} (${l.base_url || 'N/A'})`,
+    disabled: false
+  }))
+  const currentId = editRelationForm.llm_credential_id
+  if (currentId && !options.some(o => o.id === currentId)) {
+    const name = editRelationForm.llm_name || currentId
+    const tip = llmUnavailableText(editRelationForm.llm_unavailable_reason)
+    options.unshift({ id: currentId, label: `${name}（${tip}）`, disabled: true })
+  }
+  return options
 })
 
 const reasoningOptions = [
@@ -840,7 +889,8 @@ const handleDialogOpen = async () => {
     }
 
     const [llmResult, yoloResult] = await Promise.all([
-      getLLMCredentialList({}),
+      // 仅取当前工作空间 + 系统级别的可用凭证（接口已过滤禁用与已删除）
+      getWorkspaceLLMCredentials({ workspace_id: workspaceId.value }),
       getModelsList({ page: 1, page_size: 50, workspace_id: 1, model_type: 'yolo' })
     ])
     llmOptions.value = llmResult.code === 0 ? llmResult.data.list.map(l => ({ id: l.id, model: l.model, base_url: l.base_url })) : []
@@ -1092,6 +1142,9 @@ const openEditRelationDialog = (row) => {
   editRelationForm.case_name = row.case_name || ''
   editRelationForm.case_level = row.case_level || ''
   editRelationForm.status = row.status || ''
+  editRelationForm.llm_name = row.llm_name || ''
+  editRelationForm.llm_is_active = row.llm_is_active !== false
+  editRelationForm.llm_unavailable_reason = row.llm_unavailable_reason || null
   editRelationDialogVisible.value = true
 }
 
@@ -2143,6 +2196,17 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.er-field-warning {
+  font-size: 12px;
+  color: #dc2626;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
+.llm-disabled-tag {
+  margin-left: 6px;
 }
 
 .er-field-tag {

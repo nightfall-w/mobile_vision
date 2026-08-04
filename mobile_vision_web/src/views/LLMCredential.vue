@@ -41,6 +41,14 @@
               <el-option v-for="ws in workspaces" :key="ws.workspace_id" :label="ws.workspace_name" :value="ws.workspace_id" />
             </el-select>
           </div>
+          <div class="lc-filter-group">
+            <span class="lc-filter-label">状态</span>
+            <el-select v-model="filterIsActive" placeholder="全部" class="lc-select-sm">
+              <el-option label="全部" :value="''" />
+              <el-option label="启用" :value="1" />
+              <el-option label="禁用" :value="0" />
+            </el-select>
+          </div>
           <button class="lc-filter-btn" @click="handleSearch">
             <el-icon :size="13"><Search /></el-icon> 查询
           </button>
@@ -148,8 +156,15 @@
               <el-input v-model="formData.model" placeholder="例如 gpt-4o" clearable />
             </div>
             <div class="lc-fld">
-              <label>API 密钥 <span class="lc-req">*</span></label>
-              <el-input v-model="formData.api_key" type="password" placeholder="请输入 API 密钥" show-password clearable />
+              <label>API 密钥 <span v-if="!isEdit" class="lc-req">*</span></label>
+              <el-input
+                v-model="formData.api_key"
+                type="password"
+                :placeholder="isEdit ? '不填则沿用原有密钥' : '请输入 API 密钥'"
+                show-password
+                clearable
+              />
+              <span v-if="isEdit" class="lc-fld-tip">留空表示不修改密钥，测试连接时将使用已保存的密钥</span>
             </div>
             <div class="lc-fld">
               <label>基础 URL <span class="lc-req">*</span></label>
@@ -210,10 +225,10 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus, Refresh, Search, Warning, Key, InfoFilled, Setting } from '@element-plus/icons-vue'
-import { getMyManageWorkspaces } from '@/network/api.js'
+import { getMyWorkspaces } from '@/network/api.js'
 import { createLLMCredential, getLLMCredentialList, updateLLMCredential, deleteLLMCredential, getLLMCredentialWithKey, testLLMConnection } from '@/network/api.js'
 
 const credentials = ref([])
@@ -225,6 +240,7 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('添加凭证')
 const filterLevel = ref('')
 const filterWorkspaceId = ref(null)
+const filterIsActive = ref('')
 const deleteDialogVisible = ref(false)
 const deleteRow = ref(null)
 
@@ -242,13 +258,17 @@ const formData = ref({
   is_active: true
 })
 
+// 编辑态：API 密钥可留空，留空则沿用数据库中已保存的密钥
+const isEdit = computed(() => !!formData.value.id)
+
 watch(filterLevel, () => {
   if (filterLevel.value !== 'workspace') filterWorkspaceId.value = null
 })
 
 const loadWorkspaces = async () => {
   try {
-    const resp = await getMyManageWorkspaces({ page_num: 1, page_size: 100 })
+    // /my/list 覆盖我加入的全部工作空间（管理员本身也是成员，故含我管理的）
+    const resp = await getMyWorkspaces({ page_num: 1, page_size: 100 })
     if (resp.code === 0) workspaces.value = resp.data.workspaces
   } catch { /* ignore */ }
 }
@@ -259,6 +279,7 @@ const loadCredentials = async (page = 1, size = 20) => {
     const params = { page_num: page, page_size: size }
     if (filterLevel.value === 'system') params.workspace_id = 'system'
     else if (filterLevel.value === 'workspace' && filterWorkspaceId.value) params.workspace_id = filterWorkspaceId.value
+    if (filterIsActive.value !== '') params.is_active = filterIsActive.value
     const resp = await getLLMCredentialList(params)
     if (resp.code === 0) {
       credentials.value = resp.data.list
@@ -316,16 +337,19 @@ const doDelete = async () => {
 
 const handleTest = async () => {
   if (!formData.value.model) { ElMessage.warning('请先填写模型名称'); return }
-  if (!formData.value.api_key) { ElMessage.warning('请先填写 API 密钥'); return }
+  if (!isEdit.value && !formData.value.api_key) { ElMessage.warning('请先填写 API 密钥'); return }
   if (!formData.value.base_url) { ElMessage.warning('请先填写基础 URL'); return }
   testing.value = true
   try {
-    const resp = await testLLMConnection({
+    // 填了密钥就用填写的测试（不保存）；编辑时留空则由后端取库中已保存的密钥
+    const params = {
       model: formData.value.model,
-      api_key: formData.value.api_key,
       base_url: formData.value.base_url,
       api_protocol: formData.value.api_protocol
-    })
+    }
+    if (formData.value.api_key) params.api_key = formData.value.api_key
+    else params.credential_id = formData.value.id
+    const resp = await testLLMConnection(params)
     if (resp.code === 0) {
       ElMessage.success('连接测试成功！')
     } else {
@@ -336,12 +360,14 @@ const handleTest = async () => {
 
 const handleSave = async () => {
   if (!formData.value.model) { ElMessage.warning('请输入模型名称'); return }
-  if (!formData.value.api_key) { ElMessage.warning('请输入 API 密钥'); return }
+  if (!isEdit.value && !formData.value.api_key) { ElMessage.warning('请输入 API 密钥'); return }
   if (!formData.value.base_url) { ElMessage.warning('请输入基础 URL'); return }
   saving.value = true
   try {
     const wsId = formData.value.workspace_id === '__system__' ? null : formData.value.workspace_id
     const data = { ...formData.value, workspace_id: wsId }
+    // 编辑时未填写密钥则不传该字段，后端沿用数据库中原有密钥
+    if (!data.api_key) delete data.api_key
     const resp = formData.value.id ? await updateLLMCredential(data) : await createLLMCredential(data)
     if (resp.code === 0) {
       ElMessage.success(formData.value.id ? '更新成功' : '创建成功')
@@ -454,6 +480,7 @@ onMounted(() => { loadWorkspaces(); loadCredentials() })
 
 .lc-fld { display: flex; flex-direction: column; gap: 5px; }
 .lc-fld label { font-size: 12px; font-weight: 500; color: #374151; }
+.lc-fld-tip { font-size: 11px; color: #8e8e93; line-height: 1.4; }
 .lc-fld-row { flex-direction: row; gap: 12px; }
 .lc-fld-half { flex: 1; display: flex; flex-direction: column; gap: 5px; }
 .lc-req { color: #dc2626; }
