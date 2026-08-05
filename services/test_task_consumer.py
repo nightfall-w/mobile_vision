@@ -241,14 +241,15 @@ def update_task_status(db, task_id: int, status: str, duration: int = 0):
     task.running_jobs = running_jobs
 
     if completed_jobs + failed_jobs + aborted_jobs == task.total_jobs:
-        if aborted_jobs == task.total_jobs:
+        # 终态判定优先级：失败 > 放弃 > 完成。
+        # 只要有 job 失败任务即失败；否则只要有 job 被放弃任务即放弃；
+        # 仅当所有 job 都完成时才算完成。
+        if failed_jobs > 0:
+            task.status = TaskStatus.FAILED.value
+        elif aborted_jobs > 0:
             task.status = TaskStatus.ABORTED.value
         else:
-            task.status = (
-                TaskStatus.COMPLETED.value
-                if failed_jobs == 0
-                else TaskStatus.FAILED.value
-            )
+            task.status = TaskStatus.COMPLETED.value
         task.end_time = datetime.now()
         if task.start_time:
             task.total_duration = int(
@@ -717,19 +718,27 @@ def execute_test_task(task_data: dict):
                         (datetime.now() - job.start_time).total_seconds()
                     )
 
-                job.status = TaskStatus.FAILED.value
-                job.result = f"执行异常: {str(e)}"
-                job.end_time = datetime.now()
-                job.duration = duration_seconds
-                execution_state.status = TaskStatus.FAILED
-                execution_state.error_message = str(e)
-                store.update_state(job_id, execution_state)
-                store.add_log(job_id, "ERROR", f"任务执行异常: {str(e)}")
-                print(f"[FunBoost] Job {job_id} 执行异常: {e}")
-                import traceback
+                # 异常可能是用户放弃导致的（如动作执行中收到取消信号）。
+                # 此时应记 ABORTED 而非 FAILED，且要覆盖掉 abort_job 已改的 DB 状态，
+                # 保证 job.status 与 execution_state.status 一致。
+                if check_cancel_signal(str(job_id), namespace="test_job"):
+                    job.status = TaskStatus.ABORTED.value
+                    job.result = "任务被用户放弃"
+                    execution_state.status = TaskStatus.ABORTED
+                    store.update_state(job_id, execution_state)
+                    print(f"[FunBoost] Job {job_id} 执行中被用户放弃")
+                else:
+                    job.status = TaskStatus.FAILED.value
+                    job.result = f"执行异常: {str(e)}"
+                    execution_state.status = TaskStatus.FAILED
+                    execution_state.error_message = str(e)
+                    store.update_state(job_id, execution_state)
+                    store.add_log(job_id, "ERROR", f"任务执行异常: {str(e)}")
+                    print(f"[FunBoost] Job {job_id} 执行异常: {e}")
+                    import traceback
 
-                traceback.print_exc()
-                manager.send_error(job_id, str(e))
+                    traceback.print_exc()
+                    manager.send_error(job_id, str(e))
 
                 # 等待所有异步状态更新任务完成(避免竞态条件)
                 await asyncio.sleep(0.1)
