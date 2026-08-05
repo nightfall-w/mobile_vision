@@ -680,7 +680,7 @@ mobile_vision/
 
 ## 📅 功能迭代情况
 
-### 2026-08-05 — 测试计划定时执行
+### 测试计划定时执行
 
 - **测试计划定时执行** — 支持按 Cron 表达式定时/周期执行测试计划，前端可视化配置，无需人工触发
 - 定时触发失败时自动创建失败任务留痕，无人值守场景下失败可追溯
@@ -691,7 +691,7 @@ mobile_vision/
 > ⚠️ 需执行迁移脚本：
 > `mysql -u <用户名> -p<数据库名> < scripts/migration_003_test_plan_schedule.sql`
 
-### 2026-08-04 — LLM 凭证管理与可用性校验
+### LLM 凭证管理与可用性校验
 
 - 凭证列表增加**启用/禁用状态筛选**
 - 编辑凭证时 **API 密钥可留空**，沿用已保存的密钥
@@ -700,14 +700,14 @@ mobile_vision/
 - **🐛 Bug Fix** 修复编辑凭证时所属级别修改不生效的问题
 - **🐛 Bug Fix** 修复已禁用或已删除的凭证仍会被执行的问题
 
-### 2026-08-03 — MCP 服务器发布
+### MCP 服务器发布
 
 - **MCP (Model Context Protocol) 服务器**正式发布，将移动端 UI 自动化能力（ADB + YOLO + OCR）封装为标准 MCP 工具，供 Claude Code、Cursor、Gemini CLI 等 AI 客户端直接调用
 - 支持 `pip install mcp-mobile-vision` 一键安装，或从 `mcp-server/` 源码安装
 - 提供 14 个 MCP 工具：设备管理（`list_devices`、`connect_device`、`disconnect_device`、`get_device_info`）、页面识别（`recognize_page`、`screenshot`）、操作执行（`click`、`long_press`、`swipe`、`input_text`、`press_back`、`press_home`、`press_enter`）和模型配置（`set_model`、`get_model_info`）
 - 支持环境变量配置：`MV_YOLO_MODEL_PATH`、`MV_OCR_ENGINE`、`MV_ADB_CMD`、`MV_DEVICE_ID`、`MV_SCREENSHOTS_DIR`
 
-### 2026-08-02 — 测试执行监控增强
+### 测试执行监控增强
 
 - 支持测试执行过程 3X 倍速回放，根据实际截图时间差动态播放
 - 点击历史步骤可查看对应设备截图，支持"返回实时"一键切换
@@ -719,7 +719,7 @@ mobile_vision/
 > ⚠️ 2026-08-02 之前部署的用户需执行迁移脚本：
 > `mysql -u <用户名> -p<数据库名> < scripts/migration_002_plan_case_relation_nullable.sql`
 
-### 2026-07-28 — YOLO 测试集评估
+### YOLO 测试集评估
 
 - 支持 YOLO 模型测试集评估，训练前检查验证集并提示确认
 - 支持评估任务取消，后台检查状态和取消信号
@@ -728,13 +728,13 @@ mobile_vision/
 > ⚠️ 2026-07-28 之前部署的用户需执行迁移脚本：
 > `mysql -u <用户名> -p<数据库名> < scripts/migration_001_add_test_metrics.sql`
 
-### 2026-07-26 — YOLO 灵活接入与任务体验
+### YOLO 灵活接入与任务体验
 
 - YOLO 模型可选为空，允许仅使用 DOM 快通道识别
 - **🐛 Bug Fix** 测试任务创建人从写死改为当前登录用户
 - 测试任务列表改用弹窗展示 Job 详情
 
-### 2026-07-13 — UI 重构与双通道感知
+### UI 重构与双通道感知
 
 - 整体 UI 重构，登录页、列表页风格统一
 - Android 双通道页面解析：uiautomator2 DOM 快通道 + YOLO/OCR 视觉通道自动降级
