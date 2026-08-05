@@ -360,7 +360,8 @@ const getJobStatusType = (status) => {
     'pending': 'info',
     'running': 'primary',
     'completed': 'success',
-    'failed': 'danger'
+    'failed': 'danger',
+    'aborted': 'warning'
   }
   return types[status] || 'info'
 }
@@ -370,7 +371,8 @@ const getJobBadgeColor = (status) => {
     'pending': '#909399',
     'running': '#409eff',
     'completed': '#67c23a',
-    'failed': '#f56c6c'
+    'failed': '#f56c6c',
+    'aborted': '#e6a23c'
   }
   return colors[status] || '#909399'
 }
@@ -813,6 +815,7 @@ onMounted(() => {
 .jd-card--running::before { background: #409eff; }
 .jd-card--completed::before { background: #67c23a; }
 .jd-card--failed::before { background: #f56c6c; }
+.jd-card--aborted::before { background: #e6a23c; }
 
 .jd-card-inner {
   background: #fff;

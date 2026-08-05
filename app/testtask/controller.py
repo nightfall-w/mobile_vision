@@ -222,6 +222,17 @@ def _abort_single_job(db: Session, job: TestJob):
         send_cancel_signal(str(job.job_id), namespace="test_job")
         job.status = TaskStatus.ABORTED.value
         job.result = "用户放弃"
+        # 同步更新 Redis 中的执行状态，否则监控页 Header（读 execution_state）会
+        # 停留在 running/failed，与 DB 的 aborted 不一致
+        try:
+            from app.task_monitor.models import store
+            state = store.get_state(job.job_id)
+            if state:
+                state.status = TaskStatus.ABORTED
+                store.update_state(job.job_id, state)
+        except Exception:
+            # 更新 Redis 失败不影响放弃本身
+            pass
 
 
 def _refresh_task_job_counts(db: Session, task_id: int):
