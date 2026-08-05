@@ -37,6 +37,13 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             print(f"Redis 连接池初始化失败: {e}")
 
+    # 按数据库配置重建测试计划的定时任务（以数据库为准，兼容 Redis jobstore 被清空的情况）
+    try:
+        from services.scheduled_plan import restore_all_plan_schedules
+        restore_all_plan_schedules()
+    except Exception as e:
+        print(f"测试计划定时任务恢复失败: {e}")
+
     yield  # 程序运行期间会停在这里
     # 关闭时执行（替代 shutdown 事件）
     if REDIS_AVAILABLE and hasattr(redis_cache, 'pool') and redis_cache.pool:

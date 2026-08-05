@@ -2,7 +2,7 @@
 测试计划API路由
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
@@ -12,8 +12,12 @@ from api.v1.routes.testcase import get_user_nickname
 from app.device.devices_models import AndroidDevice
 from app.llm.models import LLMCredential
 from app.testcase.models import TestCase
-from app.testplan.device_queue import add_task_to_device_queue, pop_next_task
-from app.testplan.models import DeviceLock, PlanCaseRelation, TestPlan
+from app.testplan.models import PlanCaseRelation, TestPlan
+from app.testplan.controller import (
+    PlanExecuteError,
+    execute_plan_core,
+    get_available_devices,
+)
 from app.testplan.request_models import (
     AddCaseRelationRequest,
     CreatePlanRequest,
@@ -23,7 +27,6 @@ from app.testplan.request_models import (
     UpdateCaseRelationRequest,
     UpdatePlanRequest,
 )
-from app.testtask.models import TestJob
 from app.testtask.models import TestTask as NewTestTask
 from app.user.models import UserModel
 from app.user.request_models import CurrentUser
@@ -31,7 +34,12 @@ from core.auth_middleware import get_current_user
 from core.database import get_sync_db
 from core.enums import TaskStatus
 from core.response import HttpErrcode, api_response
-from services.test_task_consumer import submit_test_task, update_task_status
+from services.scheduled_plan import (
+    parse_cron_expression,
+    register_plan_schedule,
+    remove_plan_schedule,
+    sync_plan_schedule,
+)
 
 router = APIRouter(prefix="/testplan", tags=["测试计划"])
 
@@ -151,17 +159,43 @@ async def create_plan(
         current_user: UserModel = Depends(get_current_user),
 ):
     """创建测试计划"""
+    # 先校验 cron，避免表达式非法时留下一条计划（定时却没生效）
+    if request.enable_schedule and request.schedule_cron_expression:
+        try:
+            parse_cron_expression(request.schedule_cron_expression)
+        except ValueError as e:
+            return api_response(code=HttpErrcode.PARAMS_ERROR, message=str(e))
+
     plan = TestPlan(
         name=request.name,
         description=request.description,
         workspace_id=request.workspace_id,
         author=current_user.username,
+        enable_schedule=bool(request.enable_schedule),
+        schedule_cron_expression=request.schedule_cron_expression,
         create_time=datetime.now(),
         update_time=datetime.now(),
     )
     db.add(plan)
     db.commit()
     db.refresh(plan)
+
+    # 注册定时任务（job_id 依赖 plan_id，故须在落库拿到主键后进行）
+    if plan.enable_schedule and plan.schedule_cron_expression:
+        try:
+            plan.schedule_task_id = register_plan_schedule(plan.plan_id, plan.schedule_cron_expression)
+            db.commit()
+            db.refresh(plan)
+        except Exception as e:
+            # 定时注册失败不回滚计划本身，但需关闭开关避免"显示已启用实际没跑"
+            plan.enable_schedule = False
+            plan.schedule_task_id = None
+            db.commit()
+            return api_response(
+                code=HttpErrcode.EXCEPTION,
+                message=f"计划已创建，但定时任务注册失败，已关闭定时开关: {e}",
+                data=plan.to_dict(),
+            )
 
     return api_response(data=plan.to_dict())
 
@@ -181,9 +215,46 @@ async def update_plan(
         plan.name = request.name
     if request.description is not None:
         plan.description = request.description
-    plan.update_time = datetime.now()
 
+    # 定时配置：未传字段表示不改动，沿用原值
+    schedule_changed = request.enable_schedule is not None or request.schedule_cron_expression is not None
+    if schedule_changed:
+        new_enable = request.enable_schedule if request.enable_schedule is not None else plan.enable_schedule
+        new_cron = (
+            request.schedule_cron_expression
+            if request.schedule_cron_expression is not None
+            else plan.schedule_cron_expression
+        )
+        if new_enable and new_cron:
+            try:
+                parse_cron_expression(new_cron)
+            except ValueError as e:
+                return api_response(code=HttpErrcode.PARAMS_ERROR, message=str(e))
+
+        plan.enable_schedule = bool(new_enable)
+        plan.schedule_cron_expression = new_cron
+
+    plan.update_time = datetime.now()
     db.commit()
+
+    if schedule_changed:
+        # sync 内部会先移除同 id 旧任务再注册，不会产生双份触发
+        try:
+            plan.schedule_task_id = sync_plan_schedule(
+                plan.plan_id, plan.enable_schedule, plan.schedule_cron_expression
+            )
+            db.commit()
+            db.refresh(plan)
+        except Exception as e:
+            plan.enable_schedule = False
+            plan.schedule_task_id = None
+            db.commit()
+            return api_response(
+                code=HttpErrcode.EXCEPTION,
+                message=f"计划已更新，但定时任务同步失败，已关闭定时开关: {e}",
+                data=plan.to_dict(),
+            )
+
     return api_response(data=plan.to_dict())
 
 
@@ -198,7 +269,12 @@ async def delete_plan(
     if not plan:
         return api_response(code=HttpErrcode.NOT_FOUND, message="测试计划不存在")
 
+    # 必须同步移除定时任务，否则成为孤儿 job 反复触发已删除的计划
+    remove_plan_schedule(plan.plan_id)
+
     plan.is_deleted = True
+    plan.enable_schedule = False
+    plan.schedule_task_id = None
     plan.update_time = datetime.now()
     db.commit()
 
@@ -357,393 +433,26 @@ async def remove_case_relation(
     return api_response(message="移除成功")
 
 
-def is_device_locked(device_id: str, db: Session) -> bool:
-    """检查设备是否被锁定"""
-    lock = db.query(DeviceLock).filter(DeviceLock.device_id == device_id).first()
-    if not lock:
-        return False
-
-    if lock.expires_at and lock.expires_at < datetime.now():
-        db.delete(lock)
-        db.commit()
-        return False
-
-    return True
-
-
-def lock_device(device_id: str, task_id: int, plan_id: int, db: Session):
-    """锁定设备"""
-    lock = DeviceLock(
-        device_id=device_id,
-        task_id=task_id,
-        plan_id=plan_id,
-        locked_by="system",
-        locked_at=datetime.now(),
-        expires_at=datetime.now() + timedelta(hours=24),
-    )
-    db.add(lock)
-    db.commit()
-
-
-def unlock_device(device_id: str, db: Session):
-    """解锁设备"""
-    lock = db.query(DeviceLock).filter(DeviceLock.device_id == device_id).first()
-    if lock:
-        db.delete(lock)
-        db.commit()
-
-
-def get_device_by_android_id(android_id: str, db: Session) -> AndroidDevice | None:
-    """根据 android_id 查找当前连接的设备"""
-    return db.query(AndroidDevice).filter(
-        AndroidDevice.android_id == android_id,
-        AndroidDevice.status == "connected",
-        AndroidDevice.is_deleted == 0
-    ).first()
-
-
-def check_device_online_by_android_id(android_id: str, db: Session) -> bool:
-    """根据 android_id 检查设备是否在线"""
-    return get_device_by_android_id(android_id, db) is not None
-
-
-def get_available_devices(db: Session) -> list[AndroidDevice]:
-    """获取所有在线且未锁定的可用设备"""
-    online_devices = db.query(AndroidDevice).filter(
-        AndroidDevice.status == "connected",
-        AndroidDevice.is_deleted == 0
-    ).all()
-
-    available_devices = []
-    for device in online_devices:
-        if not is_device_locked(device.id, db):
-            available_devices.append(device)
-
-    return available_devices
-
-
-def distribute_tasks_to_devices(tasks: list, devices: list, task_id: int, plan_id: int, db: Session) -> tuple[
-    list, dict]:
-    """
-    将任务均衡分配给可用设备
-    返回: (job_ids列表, device_status字典)
-    """
-    if not devices:
-        return [], {"error": "no_available_devices"}
-
-    job_ids = []
-    device_status = {}
-    device_task_map = {d.id: [] for d in devices}
-    device_android_map = {d.id: d.android_id for d in devices}  # device.id → android_id
-
-    # 轮询分配任务到设备
-    for i, relation in enumerate(tasks):
-        device = devices[i % len(devices)]
-        device_task_map[device.id].append((relation, device))
-
-    # 创建Job并加入队列
-    for device_id, task_list in device_task_map.items():
-        if not task_list:
-            continue
-
-        for relation, device in task_list:
-            job = TestJob(
-                task_id=task_id,
-                case_id=relation.case_id,
-                device_id=device.id,
-                device_name=f"{device.brand} {device.model}",
-                device_android_id=device.android_id,  # 记录永久标识
-                llm_credential_id=relation.llm_credential_id,
-                yolo_model_id=relation.yolo_model_id,
-                ocr_engine=relation.ocr_engine,
-                reasoning_effort=relation.reasoning_effort or "none",
-                status=TaskStatus.PENDING.value,
-                create_time=datetime.now(),
-                update_time=datetime.now(),
-            )
-            db.add(job)
-            db.commit()
-            db.refresh(job)
-
-            add_task_to_device_queue(device_android_map[device.id], job.job_id)
-            job_ids.append(job.job_id)
-
-        # 如果设备空闲，启动第一个任务；否则只加入队列等待
-        if not is_device_locked(device_id, db):
-            first_job_id = pop_next_task(device_android_map[device_id])
-            if first_job_id:
-                lock_device(device_id, first_job_id, plan_id, db)
-                submit_test_task(first_job_id)
-                device_status[device_id] = "running"
-        else:
-            device_status[device_id] = "queued"
-
-    return job_ids, device_status
-
-
 @router.post("/execute")
 async def execute_plan(
         request: ExecutePlanRequest,
         db: Session = Depends(get_sync_db),
         current_user: UserModel = Depends(get_current_user),
 ):
-    """执行测试计划 - 支持设备动态分配"""
-    plan_id = request.plan_id
-    plan = db.query(TestPlan).filter(TestPlan.plan_id == plan_id, TestPlan.is_deleted == False).first()
-    if not plan:
-        return api_response(code=HttpErrcode.NOT_FOUND, message="测试计划不存在")
+    """执行测试计划 - 支持设备动态分配
 
-    relations = (
-        db.query(PlanCaseRelation)
-        .filter(
-            PlanCaseRelation.plan_id == plan_id, PlanCaseRelation.is_deleted == False
-        )
-        .order_by(PlanCaseRelation.create_time)
-        .all()
-    )
+    执行逻辑在 app.testplan.controller.execute_plan_core 中，与定时任务共用。
+    HTTP 场景下前置校验失败直接返回错误、不创建任务（用户能立即看到提示）；
+    定时场景另行处理为创建失败任务留痕。
+    """
+    try:
+        result = execute_plan_core(plan_id=request.plan_id, author=current_user.username, db=db)
+    except PlanExecuteError as e:
+        code = HttpErrcode.NOT_FOUND if e.message == "测试计划不存在" else HttpErrcode.PARAMS_ERROR
+        return api_response(code=code, message=e.message)
 
-    if not relations:
-        return api_response(code=HttpErrcode.PARAMS_ERROR, message="计划中没有关联用例")
-
-    # 前置校验：LLM凭证被禁用/删除时整体拦截，不创建任务，避免产生注定失败的 task 和 job
-    # llm_credential_id 为空或0的旧数据不在此拦截，仍走消费端原有失败路径
-    checked_ids = {r.llm_credential_id for r in relations if r.llm_credential_id}
-    if checked_ids:
-        credential_map = {
-            c.id: c
-            for c in db.query(LLMCredential).filter(LLMCredential.id.in_(checked_ids)).all()
-        }
-        invalid_items = []
-        for relation in relations:
-            if not relation.llm_credential_id:
-                continue
-            credential = credential_map.get(relation.llm_credential_id)
-            if not credential:
-                reason = "凭证不存在"
-            elif credential.is_deleted:
-                reason = "凭证已删除"
-            elif not credential.is_active:
-                reason = "凭证已禁用"
-            elif credential.workspace_id is not None and credential.workspace_id != plan.workspace_id:
-                reason = "凭证不属于本工作空间"
-            else:
-                continue
-            case = db.query(TestCase).filter(TestCase.case_id == relation.case_id).first()
-            case_name = case.case_name if case else f"用例{relation.case_id}"
-            invalid_items.append(f"{case_name}（{credential.model if credential else relation.llm_credential_id}：{reason}）")
-
-        if invalid_items:
-            return api_response(
-                code=HttpErrcode.PARAMS_ERROR,
-                message=f"以下用例的 LLM 凭证不可用，请修改配置后再执行：{'；'.join(invalid_items)}"
-            )
-
-    task = NewTestTask(
-        workspace_id=plan.workspace_id,
-        plan_id=plan_id,
-        task_name=plan.name,
-        author=current_user.username,
-        status=TaskStatus.PENDING.value,
-        total_jobs=len(relations),
-        completed_jobs=0,
-        failed_jobs=0,
-        create_time=datetime.now(),
-        update_time=datetime.now(),
-    )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
-
-    # 分离指定设备和动态分配的任务
-    specified_device_tasks = []  # 指定了设备的任务
-    dynamic_assign_tasks = []  # 需要动态分配设备的任务
-
-    for relation in relations:
-        if relation.device_id:
-            specified_device_tasks.append(relation)
-        else:
-            dynamic_assign_tasks.append(relation)
-
-    job_ids = []
-    device_status = {}
-    dynamic_assigned_count = 0
-
-    # 1. 处理指定了设备的任务（使用 android_id 查找当前连接的设备）
-    if specified_device_tasks:
-        # 按 android_id 分组（关键：用永久标识分组，而不是临时的 device_id）
-        device_groups = {}
-        for relation in specified_device_tasks:
-            android_id = relation.device_android_id
-            if not android_id:
-                # 兼容旧数据：如果没有 android_id 但有 device_id，尝试用 device_id 查找并补充 android_id
-                device = db.query(AndroidDevice).filter(
-                    AndroidDevice.id == relation.device_id
-                ).first()
-                if device:
-                    android_id = device.android_id
-                    relation.device_android_id = android_id  # 更新关系表的 android_id
-                else:
-                    android_id = relation.device_id  # 找不到就用 device_id 作为 fallback
-
-            if android_id not in device_groups:
-                device_groups[android_id] = []
-            device_groups[android_id].append(relation)
-
-        for android_id, group_relations in device_groups.items():
-            # 根据 android_id 查找当前连接的设备（有线/无线连接都能匹配）
-            current_device = get_device_by_android_id(android_id, db)
-
-            if current_device:
-                # 设备在线：正常创建 Job，加入设备队列并立即触发
-                current_device_id = current_device.id
-                current_device_name = f"{current_device.brand} {current_device.model}"
-
-                for relation in group_relations:
-                    job = TestJob(
-                        task_id=task.task_id,
-                        case_id=relation.case_id,
-                        device_id=current_device_id,
-                        device_name=current_device_name,
-                        device_android_id=android_id,
-                        llm_credential_id=relation.llm_credential_id,
-                        yolo_model_id=relation.yolo_model_id,
-                        ocr_engine=relation.ocr_engine,
-                        reasoning_effort=relation.reasoning_effort or "none",
-                        status=TaskStatus.PENDING.value,
-                        create_time=datetime.now(),
-                        update_time=datetime.now(),
-                    )
-                    db.add(job)
-                    db.commit()
-                    db.refresh(job)
-
-                    add_task_to_device_queue(android_id, job.job_id)
-                    job_ids.append(job.job_id)
-
-                if not is_device_locked(current_device_id, db):
-                    first_job_id = pop_next_task(android_id)
-                    if first_job_id:
-                        lock_device(current_device_id, first_job_id, plan_id, db)
-                        submit_test_task(first_job_id)
-                        device_status[current_device_id] = "running"
-                else:
-                    device_status[current_device_id] = "queued"
-            else:
-                # 设备离线：创建 Job 并直接标记为 FAILED，让用户立刻知道结果
-                offline_device_name = group_relations[0].device_name or f"设备({android_id})"
-
-                for relation in group_relations:
-                    job = TestJob(
-                        task_id=task.task_id,
-                        case_id=relation.case_id,
-                        device_id=relation.device_id,
-                        device_name=relation.device_name or offline_device_name,
-                        device_android_id=android_id,
-                        llm_credential_id=relation.llm_credential_id,
-                        yolo_model_id=relation.yolo_model_id,
-                        ocr_engine=relation.ocr_engine,
-                        reasoning_effort=relation.reasoning_effort or "none",
-                        status=TaskStatus.FAILED.value,
-                        result=f"设备不在线（{offline_device_name}），无法执行",
-                        create_time=datetime.now(),
-                        update_time=datetime.now(),
-                    )
-                    db.add(job)
-                    db.commit()
-                    db.refresh(job)
-                    job_ids.append(job.job_id)
-
-                    # 写入错误日志到 Redis，前端日志流可直接展示
-                    from app.task_monitor.models import store
-                    store.add_log(job.job_id, "ERROR", f"设备不在线（{offline_device_name}），无法执行")
-
-                device_status[android_id] = "offline"
-
-    # 2. 处理需要动态分配设备的任务
-    if dynamic_assign_tasks:
-        available_devices = get_available_devices(db)
-
-        if not available_devices:
-            # 没有空闲设备：使用全部在线设备均衡分配，Job 排队等待
-            all_online = db.query(AndroidDevice).filter(
-                AndroidDevice.status == "connected",
-                AndroidDevice.is_deleted == 0
-            ).all()
-            if all_online:
-                dynamic_job_ids, dynamic_status = distribute_tasks_to_devices(
-                    dynamic_assign_tasks,
-                    all_online,
-                    task.task_id,
-                    plan_id,
-                    db
-                )
-                job_ids.extend(dynamic_job_ids)
-                device_status.update(dynamic_status)
-                dynamic_assigned_count = len(dynamic_job_ids)
-            else:
-                # 没有任何在线设备：创建 Job 并直接标记失败
-                for relation in dynamic_assign_tasks:
-                    job = TestJob(
-                        task_id=task.task_id,
-                        case_id=relation.case_id,
-                        device_id="",
-                        device_name="动态分配",
-                        device_android_id=None,
-                        llm_credential_id=relation.llm_credential_id,
-                        yolo_model_id=relation.yolo_model_id,
-                        ocr_engine=relation.ocr_engine,
-                        reasoning_effort=relation.reasoning_effort or "none",
-                        status=TaskStatus.FAILED.value,
-                        result="没有在线设备可用",
-                        create_time=datetime.now(),
-                        update_time=datetime.now(),
-                    )
-                    db.add(job)
-                    db.commit()
-                    db.refresh(job)
-                    job_ids.append(job.job_id)
-                    from app.task_monitor.models import store
-                    store.add_log(job.job_id, "ERROR", "没有在线设备可用")
-                device_status["dynamic"] = "no_online_device"
-        else:
-            # 将任务均衡分配给可用设备
-            dynamic_job_ids, dynamic_status = distribute_tasks_to_devices(
-                dynamic_assign_tasks,
-                available_devices,
-                task.task_id,
-                plan_id,
-                db
-            )
-            job_ids.extend(dynamic_job_ids)
-            device_status.update(dynamic_status)
-            dynamic_assigned_count = len(dynamic_job_ids)
-
-    offline_devices = [d for d, s in device_status.items() if s == "offline"]
-    queued_devices = [d for d in device_status if device_status[d] == "queued"]
-    no_device = device_status.get("dynamic") == "no_online_device"
-
-    # 刷新 Task 状态（设备离线的 Job 直接标记失败，需更新 Task 的 failed_jobs 和状态）
-    update_task_status(db, task.task_id, task.status)
-
-    message = f"已创建任务 {task.task_id}，包含 {len(job_ids)} 个Job"
-    if dynamic_assigned_count > 0:
-        message += f"，其中 {dynamic_assigned_count} 个Job动态分配了设备"
-    if offline_devices:
-        message += f"，{len(offline_devices)} 个设备离线，对应Job已标记失败"
-    if no_device:
-        message += "，没有在线设备，对应Job已标记失败"
-    if queued_devices:
-        message += f"，{len(queued_devices)} 个设备正在执行其他任务，对应Job已排队等待"
-
-    return api_response(
-        data={
-            "task_id": task.task_id,
-            "job_ids": job_ids,
-            "device_status": device_status,
-            "dynamic_assigned_count": dynamic_assigned_count,
-        },
-        message=message,
-    )
+    message = result.pop("message")
+    return api_response(data=result, message=message)
 
 
 @router.get("/{plan_id}/cases")

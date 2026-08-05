@@ -73,6 +73,17 @@
         <el-table-column prop="name" label="计划名称" min-width="130" show-overflow-tooltip />
         <el-table-column prop="description" label="描述" min-width="100" show-overflow-tooltip />
         <el-table-column prop="case_count" label="用例数" width="70" />
+        <el-table-column label="定时执行" min-width="130">
+          <template #default="{ row }">
+            <el-tooltip v-if="row.enable_schedule && row.schedule_cron_expression"
+                        :content="row.schedule_cron_expression" placement="top">
+              <el-tag type="success" size="small" effect="plain" round>
+                {{ describeCron(row.schedule_cron_expression) }}
+              </el-tag>
+            </el-tooltip>
+            <span v-else class="schedule-off">未启用</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="create_time" label="创建时间" width="180" />
         <el-table-column label="操作" width="280" align="left">
             <template #default="{ row }">
@@ -125,6 +136,172 @@
         <el-form-item label="计划描述">
           <el-input v-model="form.description" type="textarea" :rows="3" placeholder="描述该计划的目的和范围（选填）" maxlength="500" />
         </el-form-item>
+
+        <div class="sched-block">
+          <div class="sched-switch-row">
+            <div>
+              <div class="sched-title">定时执行</div>
+              <div class="sched-desc">按周期自动执行本计划，无需人工触发</div>
+            </div>
+            <el-switch v-model="form.enable_schedule" />
+          </div>
+
+          <template v-if="form.enable_schedule">
+            <!-- ── 简单模式：按频率类型配置，cron 由界面生成 ── -->
+            <template v-if="!advancedMode">
+              <div class="sched-row">
+                <span class="sched-label">执行频率</span>
+                <el-radio-group v-model="sched.freq" size="small">
+                  <el-radio-button v-for="f in FREQ_OPTIONS" :key="f.value" :value="f.value">
+                    {{ f.label }}
+                  </el-radio-button>
+                </el-radio-group>
+              </div>
+
+              <!-- 按分钟 / 按小时：间隔 -->
+              <div v-if="sched.freq === FREQ.MINUTE || sched.freq === FREQ.HOURLY" class="sched-row">
+                <span class="sched-label">每隔</span>
+                <el-input-number
+                  v-model="sched.interval"
+                  :min="1"
+                  :max="sched.freq === FREQ.MINUTE ? 59 : 23"
+                  size="small"
+                  controls-position="right"
+                  style="width: 110px"
+                />
+                <span class="sched-unit">{{ sched.freq === FREQ.MINUTE ? '分钟' : '小时' }}执行一次</span>
+              </div>
+
+              <!-- 每周：星期多选 -->
+              <div v-if="sched.freq === FREQ.WEEKLY" class="sched-row">
+                <span class="sched-label">星期</span>
+                <div class="weekday-group">
+                  <button
+                    v-for="w in WEEKDAY_OPTIONS"
+                    :key="w.value"
+                    type="button"
+                    class="weekday-btn"
+                    :class="{ active: sched.weekdays.includes(w.value) }"
+                    @click="toggleWeekday(w.value)"
+                  >{{ w.label }}</button>
+                </div>
+              </div>
+
+              <!-- 每月：日期多选 -->
+              <div v-if="sched.freq === FREQ.MONTHLY" class="sched-row">
+                <span class="sched-label">日期</span>
+                <el-select v-model="sched.monthDays" multiple collapse-tags collapse-tags-tooltip
+                           size="small" placeholder="选择日期" style="flex: 1">
+                  <el-option v-for="d in 31" :key="d" :label="`${d} 日`" :value="d" />
+                </el-select>
+              </div>
+
+              <!-- 固定时刻（按分钟模式无需选时刻） -->
+              <div v-if="sched.freq !== FREQ.MINUTE" class="sched-row">
+                <span class="sched-label">{{ sched.freq === FREQ.HOURLY ? '第几分钟' : '执行时间' }}</span>
+                <el-time-picker
+                  v-if="sched.freq !== FREQ.HOURLY"
+                  v-model="schedTime"
+                  format="HH:mm"
+                  value-format="HH:mm"
+                  placeholder="选择时间"
+                  size="small"
+                  style="width: 130px"
+                />
+                <template v-else>
+                  <el-input-number v-model="schedMinuteOfHour" :min="0" :max="59" size="small"
+                                   controls-position="right" style="width: 110px" />
+                  <span class="sched-unit">分</span>
+                </template>
+              </div>
+            </template>
+
+            <!-- ── 高级模式：按 cron 字段配置 + 原始表达式 ── -->
+            <template v-else>
+              <el-tabs v-model="activeCronField" class="cron-tabs">
+                <el-tab-pane v-for="(f, i) in CRON_FIELD_DEFS" :key="f.key" :label="f.label" :name="f.key" />
+              </el-tabs>
+
+              <div class="cron-field-editor">
+                <div class="cron-field-desc">正在配置【{{ currentCronField.label }}】的执行规则</div>
+                <el-radio-group v-model="fieldRules[activeCronField].type" size="small" class="cron-rule-group">
+                  <el-radio value="all">所有值（*）</el-radio>
+                  <el-radio value="range">范围（a-b）</el-radio>
+                  <el-radio value="interval">间隔（a/b）</el-radio>
+                  <el-radio value="specific">指定值（a,b,c）</el-radio>
+                </el-radio-group>
+
+                <div v-if="fieldRules[activeCronField].type === 'range'" class="cron-rule-fields">
+                  <span>从</span>
+                  <el-input-number v-model="fieldRules[activeCronField].rangeStart"
+                                   :min="currentCronField.min" :max="currentCronField.max"
+                                   size="small" controls-position="right" style="width: 100px" />
+                  <span>到</span>
+                  <el-input-number v-model="fieldRules[activeCronField].rangeEnd"
+                                   :min="currentCronField.min" :max="currentCronField.max"
+                                   size="small" controls-position="right" style="width: 100px" />
+                  <span class="sched-unit">{{ currentCronField.unit }}</span>
+                </div>
+
+                <div v-if="fieldRules[activeCronField].type === 'interval'" class="cron-rule-fields">
+                  <span>从</span>
+                  <el-input-number v-model="fieldRules[activeCronField].intervalStart"
+                                   :min="currentCronField.min" :max="currentCronField.max"
+                                   size="small" controls-position="right" style="width: 100px" />
+                  <span>开始，每</span>
+                  <el-input-number v-model="fieldRules[activeCronField].intervalStep"
+                                   :min="1" :max="currentCronField.max"
+                                   size="small" controls-position="right" style="width: 100px" />
+                  <span class="sched-unit">{{ currentCronField.unit }}一次</span>
+                </div>
+
+                <div v-if="fieldRules[activeCronField].type === 'specific'" class="cron-rule-fields">
+                  <el-select v-model="fieldRules[activeCronField].specificValues" multiple
+                             collapse-tags collapse-tags-tooltip size="small"
+                             placeholder="选择具体值" style="flex: 1">
+                    <el-option v-for="v in currentCronFieldValues" :key="v.value"
+                               :label="v.label" :value="v.value" />
+                  </el-select>
+                </div>
+
+                <div v-if="fieldRules[activeCronField].type === 'all'" class="cron-hint">
+                  {{ currentCronField.allHint }}
+                </div>
+              </div>
+
+              <div class="sched-row cron-raw-row">
+                <span class="sched-label">表达式</span>
+                <el-input v-model="form.schedule_cron_expression" size="small"
+                          placeholder="0 0 2 * * *" @input="handleRawCronInput" />
+              </div>
+            </template>
+
+            <!-- ── 结果区：人话描述 + 表达式 + 模式切换 + 执行时间预览 ── -->
+            <div class="cron-result">
+              <div class="cron-result-head">
+                <div class="cron-result-desc">
+                  <el-icon><Calendar /></el-icon>
+                  <span>{{ cronError ? '表达式无效' : describeCron(form.schedule_cron_expression) }}</span>
+                </div>
+                <button type="button" class="cron-mode-btn" @click="toggleAdvancedMode">
+                  {{ advancedMode ? '返回简单模式' : '高级设置' }}
+                </button>
+              </div>
+
+              <div class="cron-segs">
+                <span v-for="(seg, i) in splitCron(form.schedule_cron_expression)" :key="i" class="cron-seg">
+                  <b>{{ seg }}</b><i>{{ CRON_FIELD_LABELS[i] }}</i>
+                </span>
+              </div>
+
+              <div v-if="cronError" class="cron-error">{{ cronError }}</div>
+              <template v-else-if="cronNextTimes.length">
+                <div class="cron-preview-label">接下来 {{ cronNextTimes.length }} 次执行</div>
+                <div v-for="(t, i) in cronNextTimes" :key="i" class="cron-time">{{ t }}</div>
+              </template>
+            </div>
+          </template>
+        </div>
       </el-form>
 
       <template #footer>
@@ -610,7 +787,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Plus, Search, Refresh, Warning, User, InfoFilled, Iphone, Edit, Delete, Setting, Document, DocumentAdd, MagicStick, Cpu, Check, Monitor, Aim, TrendCharts, Calendar } from '@element-plus/icons-vue'
 import axios from '@/network/axios'
@@ -631,6 +808,18 @@ import {
   getWorkspaceDetail
 } from '@/network/api'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  FREQ,
+  FREQ_OPTIONS,
+  WEEKDAY_OPTIONS,
+  configToCron,
+  cronToConfig,
+  defaultScheduleConfig,
+  describeCron,
+  nextRunTimes,
+  splitCron,
+  validateCron,
+} from '@/utils/cron.js'
 
 const router = useRouter()
 import { useRoute } from 'vue-router'
@@ -772,8 +961,178 @@ const fetchWorkspaceDetail = async () => {
 const form = reactive({
   plan_id: null,
   name: '',
-  description: ''
+  description: '',
+  enable_schedule: false,
+  schedule_cron_expression: ''
 })
+
+const CRON_FIELD_LABELS = ['秒', '分', '时', '日', '月', '周']
+
+// ── 定时配置：简单模式（频率驱动） ──
+const advancedMode = ref(false)
+const sched = reactive(defaultScheduleConfig())
+
+// 时刻用独立 ref 桥接 el-time-picker（其 value-format 为 'HH:mm'）
+const schedTime = computed({
+  get: () => sched.time,
+  set: v => { sched.time = v || '00:00' },
+})
+// 按小时模式只需"第几分钟"
+const schedMinuteOfHour = computed({
+  get: () => parseInt((sched.time || '00:00').split(':')[1], 10) || 0,
+  set: v => { sched.time = `00:${String(v ?? 0).padStart(2, '0')}` },
+})
+
+const toggleWeekday = (v) => {
+  const i = sched.weekdays.indexOf(v)
+  if (i >= 0) {
+    // 至少保留一个星期，否则表达式无意义
+    if (sched.weekdays.length > 1) sched.weekdays.splice(i, 1)
+  } else {
+    sched.weekdays.push(v)
+  }
+}
+
+// 简单模式下配置变化即重新生成表达式
+watch(sched, () => {
+  if (form.enable_schedule && !advancedMode.value) {
+    form.schedule_cron_expression = configToCron(sched)
+  }
+}, { deep: true })
+
+// ── 定时配置：高级模式（按 cron 字段） ──
+const CRON_FIELD_DEFS = [
+  { key: 'second', label: '秒', idx: 0, min: 0, max: 59, unit: '秒', allHint: '每秒都会执行' },
+  { key: 'minute', label: '分', idx: 1, min: 0, max: 59, unit: '分', allHint: '每分钟都会执行' },
+  { key: 'hour', label: '时', idx: 2, min: 0, max: 23, unit: '小时', allHint: '每小时都会执行' },
+  { key: 'day', label: '日', idx: 3, min: 1, max: 31, unit: '日', allHint: '每天都会执行' },
+  { key: 'month', label: '月', idx: 4, min: 1, max: 12, unit: '月', allHint: '每月都会执行' },
+  { key: 'week', label: '周', idx: 5, min: 0, max: 6, unit: '', allHint: '每周每天都会执行' },
+]
+const activeCronField = ref('hour')
+const currentCronField = computed(
+  () => CRON_FIELD_DEFS.find(f => f.key === activeCronField.value) || CRON_FIELD_DEFS[2]
+)
+// 周字段的下拉展示中文（值仍按 APScheduler 约定 0=周一）
+const currentCronFieldValues = computed(() => {
+  const f = currentCronField.value
+  if (f.key === 'week') return WEEKDAY_OPTIONS.map(w => ({ value: w.value, label: `周${w.label}` }))
+  const arr = []
+  for (let v = f.min; v <= f.max; v++) arr.push({ value: v, label: String(v) })
+  return arr
+})
+
+const makeFieldRule = (f) => ({
+  type: 'all',
+  rangeStart: f.min, rangeEnd: f.max,
+  intervalStart: f.min, intervalStep: 1,
+  specificValues: [],
+})
+const fieldRules = reactive(
+  Object.fromEntries(CRON_FIELD_DEFS.map(f => [f.key, makeFieldRule(f)]))
+)
+
+/** 单个字段规则 -> cron 片段 */
+const ruleToSegment = (key) => {
+  const r = fieldRules[key]
+  switch (r.type) {
+    case 'range':
+      return `${r.rangeStart}-${r.rangeEnd}`
+    case 'interval':
+      return `${r.intervalStart}/${r.intervalStep}`
+    case 'specific':
+      return r.specificValues.length ? [...r.specificValues].sort((a, b) => a - b).join(',') : '*'
+    case 'all':
+    default:
+      return '*'
+  }
+}
+
+/** 由 6 个字段规则拼出完整表达式 */
+const buildCronFromFields = () => CRON_FIELD_DEFS.map(f => ruleToSegment(f.key)).join(' ')
+
+/** 反向：把表达式各段解析进字段规则，供进入高级模式时回填 */
+const loadFieldsFromCron = (expression) => {
+  const segs = splitCron(expression)
+  CRON_FIELD_DEFS.forEach((f, i) => {
+    const seg = segs[i]
+    const r = fieldRules[f.key]
+    Object.assign(r, makeFieldRule(f))
+    if (seg === '*' || seg === '?') { r.type = 'all'; return }
+    let m
+    if ((m = seg.match(/^(\d+)-(\d+)$/))) {
+      r.type = 'range'; r.rangeStart = +m[1]; r.rangeEnd = +m[2]
+    } else if ((m = seg.match(/^(\*|\d+)\/(\d+)$/))) {
+      r.type = 'interval'
+      r.intervalStart = m[1] === '*' ? f.min : +m[1]
+      r.intervalStep = +m[2]
+    } else if (/^\d+(,\d+)*$/.test(seg)) {
+      r.type = 'specific'; r.specificValues = seg.split(',').map(Number)
+    } else {
+      r.type = 'all'
+    }
+  })
+}
+
+// 高级模式下字段规则变化即重新生成表达式
+watch(fieldRules, () => {
+  if (form.enable_schedule && advancedMode.value) {
+    form.schedule_cron_expression = buildCronFromFields()
+  }
+}, { deep: true })
+
+/** 高级模式手输表达式时，同步回字段规则（保持 tab 面板与输入框一致） */
+const handleRawCronInput = () => {
+  loadFieldsFromCron(form.schedule_cron_expression)
+}
+
+/** 切换简单/高级模式，尽量保留当前表达式 */
+const toggleAdvancedMode = () => {
+  if (!advancedMode.value) {
+    loadFieldsFromCron(form.schedule_cron_expression)
+    advancedMode.value = true
+  } else {
+    const cfg = cronToConfig(form.schedule_cron_expression)
+    if (cfg) {
+      Object.assign(sched, cfg)
+      advancedMode.value = false
+    } else {
+      // 当前表达式超出简单模式表达力，回退会丢配置，故提示后按原样重置
+      ElMessage.warning('当前表达式较复杂，简单模式无法表示，已重置为每天 02:00')
+      Object.assign(sched, defaultScheduleConfig())
+      form.schedule_cron_expression = configToCron(sched)
+      advancedMode.value = false
+    }
+  }
+}
+
+const cronCheck = computed(() => {
+  if (!form.enable_schedule) return { times: [], error: '' }
+  return nextRunTimes(form.schedule_cron_expression, 5)
+})
+const cronNextTimes = computed(() => cronCheck.value.times)
+const cronError = computed(() => cronCheck.value.error)
+
+/** 打开弹窗时按已有表达式决定用哪个模式，并回填对应配置 */
+const initScheduleFromForm = () => {
+  const expr = form.schedule_cron_expression
+  if (!expr) {
+    Object.assign(sched, defaultScheduleConfig())
+    advancedMode.value = false
+    form.schedule_cron_expression = configToCron(sched)
+    loadFieldsFromCron(form.schedule_cron_expression)
+    return
+  }
+  const cfg = cronToConfig(expr)
+  if (cfg) {
+    Object.assign(sched, cfg)
+    advancedMode.value = false
+  } else {
+    // 简单模式表达不了 -> 直接进高级模式，避免静默改写用户的表达式
+    advancedMode.value = true
+  }
+  loadFieldsFromCron(expr)
+}
 
 const formatTime = (time) => {
   if (!time) return '-'
@@ -823,6 +1182,9 @@ const openCreateDialog = () => {
   form.plan_id = null
   form.name = ''
   form.description = ''
+  form.enable_schedule = false
+  form.schedule_cron_expression = ''
+  initScheduleFromForm()
   dialogVisible.value = true
 }
 
@@ -831,6 +1193,9 @@ const openEditDialog = (row) => {
   form.plan_id = row.plan_id
   form.name = row.name
   form.description = row.description || ''
+  form.enable_schedule = row.enable_schedule === true
+  form.schedule_cron_expression = row.schedule_cron_expression || ''
+  initScheduleFromForm()
   dialogVisible.value = true
 }
 
@@ -839,11 +1204,21 @@ const savePlan = async () => {
     ElMessage.error('请输入计划名称')
     return
   }
+  if (form.enable_schedule) {
+    const check = validateCron(form.schedule_cron_expression)
+    if (!check.valid) {
+      ElMessage.error(check.message)
+      return
+    }
+  }
 
   const params = {
     name: form.name,
     description: form.description,
-    workspace_id: workspaceId.value
+    workspace_id: workspaceId.value,
+    enable_schedule: form.enable_schedule,
+    // 关闭定时时传 null，后端据此移除定时任务
+    schedule_cron_expression: form.enable_schedule ? form.schedule_cron_expression.trim() : null
   }
   if (form.plan_id) {
     params.plan_id = form.plan_id
@@ -863,6 +1238,8 @@ const resetForm = () => {
   form.plan_id = null
   form.name = ''
   form.description = ''
+  form.enable_schedule = false
+  form.schedule_cron_expression = ''
 }
 
 const handleDialogOpen = async () => {
@@ -1887,6 +2264,261 @@ onMounted(() => {
 
 .cp-form .el-form-item {
   margin-bottom: 18px;
+}
+
+/* ─── 定时执行配置 ─── */
+.sched-block {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fafafa;
+}
+
+.sched-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sched-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+.sched-desc {
+  font-size: 12px;
+  color: #8e8e93;
+  margin-top: 2px;
+}
+
+.sched-item {
+  margin-top: 14px;
+  margin-bottom: 0 !important;
+}
+
+/* 配置行：标签 + 控件横向排列 */
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sched-label {
+  font-size: 12px;
+  color: #6b7280;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.sched-unit {
+  font-size: 12px;
+  color: #8e8e93;
+}
+
+/* 星期按钮组 */
+.weekday-group {
+  display: flex;
+  gap: 6px;
+}
+
+.weekday-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid #d2d2d7;
+  background: #fff;
+  color: #374151;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.weekday-btn:hover {
+  border-color: #5b6ef7;
+  color: #5b6ef7;
+}
+
+.weekday-btn.active {
+  background: #5b6ef7;
+  border-color: #5b6ef7;
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 高级模式：字段 tab 与规则编辑 */
+.cron-tabs {
+  margin-top: 12px;
+}
+
+.cron-tabs :deep(.el-tabs__header) {
+  margin-bottom: 10px;
+}
+
+.cron-tabs :deep(.el-tabs__item) {
+  font-size: 13px;
+  padding: 0 14px;
+}
+
+.cron-field-editor {
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.cron-field-desc {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 10px;
+}
+
+.cron-rule-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
+
+.cron-rule-group :deep(.el-radio) {
+  margin-right: 0;
+  height: 26px;
+}
+
+.cron-rule-fields {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  flex-wrap: wrap;
+}
+
+.cron-raw-row {
+  margin-top: 12px;
+}
+
+/* 结果区 */
+.cron-result {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.cron-result-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.cron-result-desc {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1d1d1f;
+}
+
+.cron-result-desc .el-icon {
+  color: #5b6ef7;
+}
+
+.cron-mode-btn {
+  border: none;
+  background: transparent;
+  color: #5b6ef7;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.cron-mode-btn:hover {
+  background: #eef2ff;
+}
+
+.cron-segs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+
+.schedule-off {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.cron-fields {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cron-seg {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 40px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  background: #eef2ff;
+}
+
+.cron-seg b {
+  font-family: monospace;
+  font-size: 12px;
+  color: #5b6ef7;
+  font-weight: 600;
+}
+
+.cron-seg i {
+  font-style: normal;
+  font-size: 10px;
+  color: #8e8e93;
+}
+
+.cron-hint {
+  font-size: 11px;
+  color: #8e8e93;
+  margin-top: 6px;
+  line-height: 1.4;
+}
+
+.cron-preview {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid #eee;
+}
+
+.cron-preview-label {
+  font-size: 11px;
+  color: #8e8e93;
+  margin-bottom: 4px;
+}
+
+.cron-time {
+  font-family: monospace;
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.7;
+}
+
+.cron-error {
+  font-size: 12px;
+  color: #dc2626;
+  line-height: 1.5;
 }
 
 .cp-form .el-form-item:last-child {

@@ -8,7 +8,7 @@ from app.testplan.device_queue import remove_task_from_queue
 from app.testtask.models import TestTask, TestJob
 from app.task_monitor.models import store
 from app.yolo.controller import get_all_models
-from api.v1.routes.testplan import is_device_locked, unlock_device
+from app.testplan.controller import is_device_locked, unlock_device
 from core.enums import TaskStatus
 from utils.task_cancel import send_cancel_signal
 
