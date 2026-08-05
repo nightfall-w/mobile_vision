@@ -11,6 +11,8 @@ class CreatePlanRequest(BaseModel):
     name: str = Field(..., description="计划名称")
     description: Optional[str] = Field(None, description="计划描述")
     workspace_id: int = Field(..., description="工作空间ID")
+    enable_schedule: Optional[bool] = Field(False, description="是否启用定时执行")
+    schedule_cron_expression: Optional[str] = Field(None, description="Cron表达式(6段: 秒 分 时 日 月 周)")
 
 
 class UpdatePlanRequest(BaseModel):
@@ -18,6 +20,8 @@ class UpdatePlanRequest(BaseModel):
     plan_id: int = Field(..., description="计划ID")
     name: Optional[str] = Field(None, description="计划名称")
     description: Optional[str] = Field(None, description="计划描述")
+    enable_schedule: Optional[bool] = Field(None, description="是否启用定时执行")
+    schedule_cron_expression: Optional[str] = Field(None, description="Cron表达式(6段: 秒 分 时 日 月 周)")
 
 
 class AddCaseRelationRequest(BaseModel):

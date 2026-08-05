@@ -29,7 +29,9 @@ class Agent:
         self.ai_service = AIService(
             model=self.config.model,
             api_key=self.config.api_key,
-            base_url=self.config.base_url
+            base_url=self.config.base_url,
+            # 让 LLM 重试过程也能出现在监控页日志流（on_log 在构造后才被赋值，故用 lambda 延迟取值）
+            on_log=lambda level, message: self._report_log(level, message)
         )
         self.destroyed = False
         self.operation_history: List[OperationRecord] = []
@@ -416,7 +418,7 @@ class Agent:
                         else:
                             verification_fail_count += 1
                             self._report_log("WARNING",
-                                             f"AI判定任务完成但验证未通过（{verification_fail_count}/{max_verification_fails}次）")
+                                             f"子任务规划执行已完成但AI Judge介入判定未通过（{verification_fail_count}/{max_verification_fails}次），原因：{task_verification.reason}")
                             # 将验证失败的反馈传递给下一次决策,防止AI越界执行下一个子任务
                             verification_feedback = (
                                 f"⚠️ 系统提示：你上一次 finish 被拒绝了！验证未通过的原因：{task_verification.reason}。"
@@ -427,7 +429,7 @@ class Agent:
                                 self._report_log("ERROR", f"连续{max_verification_fails}次验证未通过，标记子任务失败")
                                 return ExecutionResult(
                                     success=False,
-                                    error=f"AI判定任务完成但验证连续{max_verification_fails}次未通过：{task_verification.reason}"
+                                    error=f"子任务规划执行已完成但AI Judge介入判定连续{max_verification_fails}次未通过：{task_verification.reason}"
                                 ), step_count
                             continue
                     else:
@@ -759,7 +761,8 @@ class Agent:
                         sy = int(height / 2)
                         ey = int(height / 2)
                     if hasattr(self.interface, "_take_screenshot_with_marker"):
-                        step_screenshot_path = await self.interface._take_screenshot_with_marker(sx, sy, end_x=ex, end_y=ey)
+                        step_screenshot_path = await self.interface._take_screenshot_with_marker(sx, sy, end_x=ex,
+                                                                                                 end_y=ey)
             except Exception as e:
                 logger.warning(f"步骤{step_count}操作前截图标记失败: {e}")
 

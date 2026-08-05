@@ -47,24 +47,145 @@ def get_llm_credential(db, credential_id: int, workspace_id: int):
 
 
 def describe_llm_credential_issue(db, credential_id: int) -> Optional[str]:
-    """检查凭证是否可用，可用返回None，否则返回不可用原因"""
+    """
+    检查凭证是否可用，可用返回None，否则返回不可用原因
+
+    原因中附带凭证的 ID、模型名与 base_url，便于直接定位是哪个凭证出了问题。
+    """
     if not credential_id:
         return "未配置LLM凭证"
     credential = (
         db.query(LLMCredential).filter(LLMCredential.id == credential_id).first()
     )
     if not credential:
-        return "LLM凭证不存在"
+        return f"LLM凭证不存在（ID: {credential_id}）"
+
     if credential.is_deleted:
-        return "LLM凭证已删除"
-    if not credential.is_active:
-        return "LLM凭证已禁用"
-    return None
+        reason = "LLM凭证已删除"
+    elif not credential.is_active:
+        reason = "LLM凭证已禁用"
+    else:
+        return None
+
+    return f"{reason}（ID: {credential.id}，模型: {credential.model}，地址: {credential.base_url}）"
 
 
 def get_test_case(db, case_id: int):
     """获取测试用例"""
     return db.query(TestCase).filter(TestCase.case_id == case_id).first()
+
+
+def fail_job(session, job, reason: str, execution_state=None):
+    """
+    将Job标记为失败并记录原因
+
+    排队中的Job在轮到自己执行时，设备/凭证状态可能已变化（执行计划时的前置校验管不到），
+    此处统一落库 job.result 并写入日志流，确保监控页能看到具体原因而不是底层报错。
+
+    注意：add_log 只写 Redis 且 24 小时过期，故此处必须同步到 MySQL，
+    否则历史任务的失败日志会消失（job.result 仍在，但日志流为空）。
+    """
+    duration_seconds = 0
+    if job.start_time:
+        duration_seconds = int((datetime.now() - job.start_time).total_seconds())
+
+    job.status = TaskStatus.FAILED.value
+    job.result = reason
+    job.end_time = datetime.now()
+    job.duration = duration_seconds
+    job.update_time = datetime.now()
+    session.commit()
+
+    store.add_log(job.job_id, "ERROR", reason)
+
+    # 早退失败时 execution_state 可能还没创建，这里补一个，保证 sync_to_mysql 有状态可写
+    if execution_state is None:
+        execution_state = store.get_state(job.job_id) or store.create_task(job.job_id)
+    execution_state.status = TaskStatus.FAILED
+    execution_state.error_message = reason
+    store.update_state(job.job_id, execution_state)
+
+    update_task_status(session, job.task_id, TaskStatus.FAILED.value, duration_seconds)
+
+    # 持久化到 MySQL，避免 Redis 过期后失败原因丢失
+    try:
+        store.sync_to_mysql(job.job_id)
+    except Exception as e:
+        print(f"[FunBoost] Job {job.job_id} 失败日志同步MySQL异常: {e}")
+
+    print(f"[FunBoost] Job {job.job_id} 失败: {reason}")
+
+
+def release_device_and_trigger_next(session, job):
+    """
+    Job 结束后解锁设备并触发该设备队列中的下一个Job
+
+    Job 提前失败（凭证不可用、设备掉线等）时也必须调用，否则设备锁不释放、
+    队列中后续Job永远不会被触发。
+    """
+    next_job_id = pop_next_task(job.device_android_id)
+    if next_job_id:
+        existing_lock = (
+            session.query(DeviceLock)
+            .filter(DeviceLock.device_id == job.device_id)
+            .first()
+        )
+        if existing_lock:
+            session.delete(existing_lock)
+            session.commit()
+
+        lock = DeviceLock(
+            device_id=job.device_id,
+            task_id=next_job_id,
+            plan_id=0,
+            locked_by="system",
+            locked_at=datetime.now(),
+            expires_at=datetime.now() + timedelta(hours=24),
+        )
+        session.add(lock)
+        session.commit()
+        submit_test_task(next_job_id)
+        print(f"[FunBoost] Job {job.job_id} 结束，自动触发队列中的下一个Job {next_job_id}")
+    else:
+        print(f"[FunBoost] Job {job.job_id} 结束，设备 {job.device_id} 队列为空")
+        lock = (
+            session.query(DeviceLock)
+            .filter(DeviceLock.device_id == job.device_id)
+            .first()
+        )
+        if lock:
+            session.delete(lock)
+            session.commit()
+            print(f"[FunBoost] 设备 {job.device_id} 已解锁")
+
+
+def check_device_available(db, device_id: str, device_android_id: str):
+    """
+    检查Job的目标设备当前是否可用（含断连后按 android_id 自动重连）
+
+    :return: (可用的device_id或None, 提示信息)
+    """
+    matched_device_id, match_message = match_device_by_android_id(
+        db, device_id, device_android_id
+    )
+    connected_devices = get_connected_devices()
+    if matched_device_id in connected_devices:
+        return matched_device_id, match_message
+
+    device_name = device_id or device_android_id or "未知设备"
+    device = None
+    if device_android_id:
+        device = (
+            db.query(AndroidDevice)
+            .filter(AndroidDevice.android_id == device_android_id)
+            .first()
+        )
+    if device is None and device_id:
+        device = db.query(AndroidDevice).filter(AndroidDevice.id == device_id).first()
+    if device is not None:
+        device_name = f"{device.brand} {device.model}".strip() or device_name
+
+    return None, f"设备不在线（{device_name}），无法执行"
 
 
 def get_yolo_model_info(model_id: str):
@@ -253,12 +374,8 @@ def execute_test_task(task_data: dict):
 
         case = get_test_case(session, job.case_id)
         if not case:
-            print(f"[FunBoost] Job {job_id} 用例不存在")
-            job.status = TaskStatus.FAILED.value
-            job.result = "用例不存在"
-            job.update_time = datetime.now()
-            session.commit()
-            update_task_status(session, job.task_id, TaskStatus.FAILED.value)
+            fail_job(session, job, "用例不存在")
+            release_device_and_trigger_next(session, job)
             return
 
         case_content = case.content
@@ -268,23 +385,25 @@ def execute_test_task(task_data: dict):
             session, job.llm_credential_id, 0
         )  # workspace_id 暂时用0
         if not credential:
+            # 排队期间凭证可能被禁用/删除，此处兜底并写入日志流供监控页展示
             reason = describe_llm_credential_issue(session, job.llm_credential_id) or "LLM凭证不存在"
-            print(f"[FunBoost] Job {job_id} {reason}")
-            job.status = TaskStatus.FAILED.value
-            job.result = reason
-            job.update_time = datetime.now()
-            session.commit()
-            update_task_status(session, job.task_id, TaskStatus.FAILED.value)
+            fail_job(session, job, reason)
+            release_device_and_trigger_next(session, job)
             return
 
         yolo_path, yolo_classes = get_yolo_model_info(job.yolo_model_id)
         print(f"[FunBoost] Job {job_id}: yolo_path={yolo_path}")
 
-        matched_device_id, match_message = match_device_by_android_id(
+        # 排队期间设备可能掉线，需显式检查；否则会走到 AndroidInterface.create 抛底层连接错误
+        matched_device_id, match_message = check_device_available(
             session, job.device_id, job.device_android_id
         )
         if match_message:
             print(f"[FunBoost] {match_message}")
+        if not matched_device_id:
+            fail_job(session, job, match_message)
+            release_device_and_trigger_next(session, job)
+            return
 
         print(f"[FunBoost] Job {job_id} 配置:")
         print(f"  设备: {matched_device_id}")
@@ -652,45 +771,7 @@ def execute_test_task(task_data: dict):
                     update_task_status(session, job.task_id, job.status, job.duration)
 
                 # 解锁设备并处理下一个Job
-                next_job_id = pop_next_task(job.device_android_id)
-                if next_job_id:
-                    existing_lock = (
-                        session.query(DeviceLock)
-                        .filter(DeviceLock.device_id == job.device_id)
-                        .first()
-                    )
-                    if existing_lock:
-                        session.delete(existing_lock)
-                        session.commit()
-
-                    lock = DeviceLock(
-                        device_id=job.device_id,
-                        task_id=next_job_id,
-                        plan_id=0,
-                        locked_by="system",
-                        locked_at=datetime.now(),
-                        expires_at=datetime.now() + timedelta(hours=24),
-                    )
-                    session.add(lock)
-                    session.commit()
-                    submit_test_task(next_job_id)
-                    print(
-                        f"[FunBoost] Job {job_id} 完成，自动触发队列中的下一个Job {next_job_id}"
-                    )
-                else:
-                    print(
-                        f"[FunBoost] Job {job_id} 完成，设备 {job.device_id} 队列为空"
-                    )
-                    # 解锁设备
-                    lock = (
-                        session.query(DeviceLock)
-                        .filter(DeviceLock.device_id == job.device_id)
-                        .first()
-                    )
-                    if lock:
-                        session.delete(lock)
-                        session.commit()
-                        print(f"[FunBoost] 设备 {job.device_id} 已解锁")
+                release_device_and_trigger_next(session, job)
 
         asyncio.run(run_async())
 

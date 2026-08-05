@@ -125,12 +125,16 @@ CREATE TABLE `test_plan` (
   `description`  TEXT          NULL     COMMENT '计划描述',
   `workspace_id` INT           NOT NULL COMMENT '工作空间ID',
   `author`       VARCHAR(100)  NOT NULL COMMENT '创建人',
+  `enable_schedule`          TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否启用定时执行',
+  `schedule_cron_expression` VARCHAR(200) NULL COMMENT 'Cron表达式(6段: 秒 分 时 日 月 周)',
+  `schedule_task_id`         VARCHAR(100) NULL COMMENT 'APScheduler任务ID，格式 testplan_{plan_id}',
   `create_time`  DATETIME      DEFAULT CURRENT_TIMESTAMP,
   `update_time`  DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   `is_deleted`   TINYINT(1)    DEFAULT 0,
   PRIMARY KEY (`plan_id`),
   KEY `idx_workspace_id` (`workspace_id`),
-  KEY `idx_is_deleted` (`is_deleted`)
+  KEY `idx_is_deleted` (`is_deleted`),
+  KEY `idx_enable_schedule` (`enable_schedule`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='测试计划表';
 
 DROP TABLE IF EXISTS `plan_case_relation`;

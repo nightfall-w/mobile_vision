@@ -17,6 +17,9 @@ class TestPlan(Base):
     description = Column(Text)
     workspace_id = Column(Integer, nullable=False)
     author = Column(String(100), nullable=False)
+    enable_schedule = Column(Boolean, default=False, comment="是否启用定时执行")
+    schedule_cron_expression = Column(String(200), nullable=True, comment="Cron表达式(6段: 秒 分 时 日 月 周)")
+    schedule_task_id = Column(String(100), nullable=True, comment="APScheduler任务ID，格式 testplan_{plan_id}")
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     is_deleted = Column(Boolean, default=False)
@@ -28,6 +31,9 @@ class TestPlan(Base):
             'description': self.description,
             'workspace_id': self.workspace_id,
             'author': self.author,
+            'enable_schedule': bool(self.enable_schedule),
+            'schedule_cron_expression': self.schedule_cron_expression,
+            'schedule_task_id': self.schedule_task_id,
             'create_time': self.create_time.strftime('%Y-%m-%d %H:%M:%S') if self.create_time else None,
             'update_time': self.update_time.strftime('%Y-%m-%d %H:%M:%S') if self.update_time else None,
             'is_deleted': self.is_deleted

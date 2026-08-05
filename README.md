@@ -540,6 +540,8 @@ mobile_vision/
 │   ├── workspace/                   # 工作空间模块
 │   ├── testcase/                    # 测试用例模块
 │   ├── testplan/                    # 测试计划模块
+│   │   ├── controller.py            # 计划执行核心（HTTP 与定时任务共用）
+│   │   └── device_queue.py          # 设备队列调度
 │   ├── testtask/                    # 测试任务模块
 │   ├── device/                      # 设备管理模块
 │   ├── llm/                         # LLM 配置模块
@@ -563,7 +565,8 @@ mobile_vision/
 │   └── enums.py                     # 枚举定义
 ├── services/                        # 后台任务消费者
 │   ├── test_task_consumer.py        # 测试任务消费者
-│   └── yolo_train_consumer.py       # YOLO 训练消费者
+│   ├── yolo_train_consumer.py       # YOLO 训练消费者
+│   └── scheduled_plan.py            # 测试计划定时调度（ApsJobAdder + Redis）
 ├── db/                              # 数据库初始化
 │   ├── __main__.py                  # 自动建表入口
 │   └── migrations/                  # SQL 迁移脚本
@@ -576,7 +579,8 @@ mobile_vision/
 │   ├── screenshots/                 # 执行过程截图
 │   └── reports/                     # 测试报告
 ├── scripts/                         # 运维脚本
-│   └── init_database.sql            # 数据库初始化 SQL
+│   ├── init_database.sql            # 数据库初始化 SQL
+│   └── migration_003_test_plan_schedule.sql  # 定时调度迁移脚本
 ├── docs/                            # 文档
 │   └── deployment.md                # 生产部署指南
 ├── mcp-server/                       # MCP 服务器（独立子项目）
@@ -602,6 +606,8 @@ mobile_vision/
 │   │   ├── router/                  # 路由配置
 │   │   ├── network/                 # API 封装
 │   │   ├── assets/                  # 静态资源
+│   │   ├── utils/                   # 工具函数
+│   │   │   └── cron.js              # Cron 表达式工具
 │   │   ├── App.vue                  # 根组件
 │   │   └── main.js                  # 入口文件
 │   └── package.json
@@ -674,24 +680,34 @@ mobile_vision/
 
 ## 📅 功能迭代情况
 
-### 2026-08-04 — LLM 凭证管理与可用性校验
+### 测试计划定时执行
 
-- LLM 凭证列表增加**启用/禁用状态筛选**
-- 编辑凭证时 **API 密钥可留空**，留空则沿用数据库中已保存的密钥；新建时仍为必填
-- 测试连接支持使用已保存的密钥：填写了密钥则用填写的测试，留空则取库中密钥，两种情况均**不落库**，仅点击保存时才写入
-- 凭证下拉列表按工作空间隔离，仅展示**当前工作空间 + 系统级别**且非禁用、非删除的凭证
-- 用例配置中关联的凭证不可用时，下拉框保留该项并置灰，按原因区分提示（已禁用 / 已删除 / 非本空间 / 凭证不存在）
-- **🐛 Bug Fix** 编辑凭证时所属级别（系统 / 工作空间）修改后不生效 — 更新请求模型缺少 `workspace_id` 字段，导致该值被静默丢弃
-- **🐛 Bug Fix** 已禁用或已软删除的凭证仍会被执行 — 消费端与 `/execute` 增加可用性校验，存在不可用凭证时整体拦截、不创建任务
+- **测试计划定时执行** — 支持按 Cron 表达式定时/周期执行测试计划，前端可视化配置，无需人工触发
+- 定时触发失败时自动创建失败任务留痕，无人值守场景下失败可追溯
+- **部分执行策略** — 个别用例配置异常时单独标记失败，其余用例照常执行
+- **LLM 调用自动重试** — 限流、服务过载等临时故障自动重试，避免中断测试任务
+- 测试计划列表新增**定时执行**状态列
 
-### 2026-08-03 — MCP 服务器发布
+> ⚠️ 需执行迁移脚本：
+> `mysql -u <用户名> -p<数据库名> < scripts/migration_003_test_plan_schedule.sql`
+
+### LLM 凭证管理与可用性校验
+
+- 凭证列表增加**启用/禁用状态筛选**
+- 编辑凭证时 **API 密钥可留空**，沿用已保存的密钥
+- 凭证下拉列表按工作空间隔离，仅展示当前空间与系统级且可用的凭证
+- 不可用凭证在配置中置灰并提示原因
+- **🐛 Bug Fix** 修复编辑凭证时所属级别修改不生效的问题
+- **🐛 Bug Fix** 修复已禁用或已删除的凭证仍会被执行的问题
+
+### MCP 服务器发布
 
 - **MCP (Model Context Protocol) 服务器**正式发布，将移动端 UI 自动化能力（ADB + YOLO + OCR）封装为标准 MCP 工具，供 Claude Code、Cursor、Gemini CLI 等 AI 客户端直接调用
 - 支持 `pip install mcp-mobile-vision` 一键安装，或从 `mcp-server/` 源码安装
 - 提供 14 个 MCP 工具：设备管理（`list_devices`、`connect_device`、`disconnect_device`、`get_device_info`）、页面识别（`recognize_page`、`screenshot`）、操作执行（`click`、`long_press`、`swipe`、`input_text`、`press_back`、`press_home`、`press_enter`）和模型配置（`set_model`、`get_model_info`）
 - 支持环境变量配置：`MV_YOLO_MODEL_PATH`、`MV_OCR_ENGINE`、`MV_ADB_CMD`、`MV_DEVICE_ID`、`MV_SCREENSHOTS_DIR`
 
-### 2026-08-02 — 测试执行监控增强
+### 测试执行监控增强
 
 - 支持测试执行过程 3X 倍速回放，根据实际截图时间差动态播放
 - 点击历史步骤可查看对应设备截图，支持"返回实时"一键切换
@@ -703,7 +719,7 @@ mobile_vision/
 > ⚠️ 2026-08-02 之前部署的用户需执行迁移脚本：
 > `mysql -u <用户名> -p<数据库名> < scripts/migration_002_plan_case_relation_nullable.sql`
 
-### 2026-07-28 — YOLO 测试集评估
+### YOLO 测试集评估
 
 - 支持 YOLO 模型测试集评估，训练前检查验证集并提示确认
 - 支持评估任务取消，后台检查状态和取消信号
@@ -712,13 +728,13 @@ mobile_vision/
 > ⚠️ 2026-07-28 之前部署的用户需执行迁移脚本：
 > `mysql -u <用户名> -p<数据库名> < scripts/migration_001_add_test_metrics.sql`
 
-### 2026-07-26 — YOLO 灵活接入与任务体验
+### YOLO 灵活接入与任务体验
 
 - YOLO 模型可选为空，允许仅使用 DOM 快通道识别
 - **🐛 Bug Fix** 测试任务创建人从写死改为当前登录用户
 - 测试任务列表改用弹窗展示 Job 详情
 
-### 2026-07-13 — UI 重构与双通道感知
+### UI 重构与双通道感知
 
 - 整体 UI 重构，登录页、列表页风格统一
 - Android 双通道页面解析：uiautomator2 DOM 快通道 + YOLO/OCR 视觉通道自动降级
@@ -731,7 +747,7 @@ mobile_vision/
 
 - [ ] **测试过程强化学习** — 支持将用例某次执行过程标记为**标准样例**，自动提取操作步骤、页面状态与决策路径。后续执行相同用例时，优先参考本地样例进行辅助决策，逐步减少对云端大模型的调用依赖，降低执行成本与响应延迟
 - [ ] **增量学习与主动发现** — 测试执行过程中 Agent 发现的页面元素可自动回流至标注系统，经人工确认后纳入训练集，实现目标检测模型的持续迭代优化
-- [ ] **定时任务与消息通知** — 支持测试任务的**定时/周期调度**（Cron 表达式），执行完成后通过**机器人通知**（飞书/钉钉/企业微信 Webhook）推送结果，实现无人值守的自动化测试闭环
+- [ ] **执行结果机器人通知** — 测试计划**定时/周期调度**（Cron 表达式）已完成，规划执行完成后通过**机器人通知**（飞书/钉钉/企业微信 Webhook）推送结果，实现无人值守的自动化测试闭环
 - [ ] **技能插件系统** — 支持接入预置 Skill 或自定义脚本作为测试执行中的**前置/后置动作**，完成数据构造、接口调用、环境准备等必要环节，打通从准备到验证的完整流程闭环
 - [ ] iOS 设备支持 (XCTest / WebDriverAgent)
 - [ ] CI/CD 集成 (Jenkins / GitLab CI)
