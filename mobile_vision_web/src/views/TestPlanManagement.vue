@@ -302,6 +302,39 @@
             </div>
           </template>
         </div>
+
+        <!-- ── 通知配置 ── -->
+        <div class="sched-block" style="margin-top: 12px;">
+          <div class="sched-switch-row">
+            <div>
+              <div class="sched-title">消息通知</div>
+              <div class="sched-desc">任务完成后通过机器人推送结果到团队协作平台</div>
+            </div>
+            <el-switch v-model="form.enable_notification" />
+          </div>
+
+          <template v-if="form.enable_notification">
+            <el-checkbox v-model="form.notify_on_failure_only" style="margin-top: 10px; font-size: 13px;">
+              仅失败时通知
+            </el-checkbox>
+
+            <div class="notif-row">
+              <span class="sched-label">企业微信</span>
+              <el-input v-model="form.wecom_webhooks" type="textarea" :rows="2"
+                        placeholder="多个 webhook URL 请每行一个" />
+            </div>
+            <div class="notif-row">
+              <span class="sched-label">飞书</span>
+              <el-input v-model="form.lark_webhooks" type="textarea" :rows="2"
+                        placeholder="多个 webhook URL 请每行一个" />
+            </div>
+            <div class="notif-row">
+              <span class="sched-label">钉钉</span>
+              <el-input v-model="form.dingtalk_webhooks" type="textarea" :rows="2"
+                        placeholder="多个 webhook URL 请每行一个" />
+            </div>
+          </template>
+        </div>
       </el-form>
 
       <template #footer>
@@ -963,7 +996,12 @@ const form = reactive({
   name: '',
   description: '',
   enable_schedule: false,
-  schedule_cron_expression: ''
+  schedule_cron_expression: '',
+  enable_notification: false,
+  notify_on_failure_only: false,
+  wecom_webhooks: '',
+  lark_webhooks: '',
+  dingtalk_webhooks: ''
 })
 
 const CRON_FIELD_LABELS = ['秒', '分', '时', '日', '月', '周']
@@ -1177,6 +1215,10 @@ const handlePageChange = (page) => {
   loadPlans()
 }
 
+// 辅助：textarea 换行与后端数组互转
+const toLines = (arr) => Array.isArray(arr) ? arr.join('\n') : (arr || '')
+const fromLines = (str) => (str || '').split('\n').map(s => s.trim()).filter(Boolean)
+
 const openCreateDialog = () => {
   dialogTitle.value = '创建测试计划'
   form.plan_id = null
@@ -1184,6 +1226,11 @@ const openCreateDialog = () => {
   form.description = ''
   form.enable_schedule = false
   form.schedule_cron_expression = ''
+  form.enable_notification = false
+  form.notify_on_failure_only = false
+  form.wecom_webhooks = ''
+  form.lark_webhooks = ''
+  form.dingtalk_webhooks = ''
   initScheduleFromForm()
   dialogVisible.value = true
 }
@@ -1195,6 +1242,11 @@ const openEditDialog = (row) => {
   form.description = row.description || ''
   form.enable_schedule = row.enable_schedule === true
   form.schedule_cron_expression = row.schedule_cron_expression || ''
+  form.enable_notification = row.enable_notification === true
+  form.notify_on_failure_only = row.notify_on_failure_only === true
+  form.wecom_webhooks = toLines(row.wecom_webhooks)
+  form.lark_webhooks = toLines(row.lark_webhooks)
+  form.dingtalk_webhooks = toLines(row.dingtalk_webhooks)
   initScheduleFromForm()
   dialogVisible.value = true
 }
@@ -1218,7 +1270,12 @@ const savePlan = async () => {
     workspace_id: workspaceId.value,
     enable_schedule: form.enable_schedule,
     // 关闭定时时传 null，后端据此移除定时任务
-    schedule_cron_expression: form.enable_schedule ? form.schedule_cron_expression.trim() : null
+    schedule_cron_expression: form.enable_schedule ? form.schedule_cron_expression.trim() : null,
+    enable_notification: form.enable_notification,
+    notify_on_failure_only: form.notify_on_failure_only,
+    wecom_webhooks: form.enable_notification ? fromLines(form.wecom_webhooks) : [],
+    lark_webhooks: form.enable_notification ? fromLines(form.lark_webhooks) : [],
+    dingtalk_webhooks: form.enable_notification ? fromLines(form.dingtalk_webhooks) : [],
   }
   if (form.plan_id) {
     params.plan_id = form.plan_id
@@ -1240,6 +1297,11 @@ const resetForm = () => {
   form.description = ''
   form.enable_schedule = false
   form.schedule_cron_expression = ''
+  form.enable_notification = false
+  form.notify_on_failure_only = false
+  form.wecom_webhooks = ''
+  form.lark_webhooks = ''
+  form.dingtalk_webhooks = ''
 }
 
 const handleDialogOpen = async () => {
@@ -2455,6 +2517,20 @@ onMounted(() => {
 .schedule-off {
   font-size: 12px;
   color: #c0c4cc;
+}
+
+/* ─── 通知配置 ─── */
+.notif-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 12px;
+}
+
+.notif-row .sched-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
 }
 
 .cron-fields {

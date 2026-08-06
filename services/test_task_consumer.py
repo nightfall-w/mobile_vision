@@ -263,6 +263,14 @@ def update_task_status(db, task_id: int, status: str, duration: int = 0):
     task.update_time = datetime.now()
     db.commit()
 
+    # 任务到达终态时触发通知（不影响主流程，失败仅记日志）
+    if completed_jobs + failed_jobs + aborted_jobs == task.total_jobs:
+        try:
+            from services.notification import send_task_notification
+            send_task_notification(task.task_id, db)
+        except Exception as e:
+            print(f"[通知] 发送任务 {task.task_id} 通知异常: {e}")
+
 
 def get_connected_devices():
     """获取当前连接的设备列表"""
@@ -695,12 +703,16 @@ def execute_test_task(task_data: dict):
                         job.status = TaskStatus.ABORTED.value
                         job.result = "任务被用户放弃"
                         execution_state.status = TaskStatus.ABORTED
+                        # 写入日志流，监控页才能看到放弃原因
+                        store.add_log(job_id, "WARNING", "任务被用户放弃")
                     else:
                         job.status = TaskStatus.FAILED.value
                         job.result = (match_message + "\n" if match_message else "") + (
                                 result.error or "Job执行失败"
                         )
                         execution_state.status = TaskStatus.FAILED
+                        # 写入日志流，监控页才能看到失败原因（如"任务执行超时"）
+                        store.add_log(job_id, "ERROR", result.error or "Job执行失败")
                     job.end_time = datetime.now()
                     job.duration = duration_seconds
                     print(f"[FunBoost] Job {job_id} 执行失败: {result.error}")

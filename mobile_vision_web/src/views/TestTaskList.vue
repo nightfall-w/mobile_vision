@@ -706,16 +706,6 @@ onMounted(() => {
   --jd-radius: 16px;
 }
 
-.jd-dialog :deep(.el-dialog__header) {
-  padding: 0;
-  margin: 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.jd-dialog :deep(.el-dialog__body) {
-  padding: 0;
-}
-
 .jd-dialog-header {
   display: flex;
   justify-content: space-between;
@@ -791,8 +781,6 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
   padding: 16px 24px 20px;
-  max-height: 60vh;
-  overflow-y: auto;
 }
 
 .jd-card {
@@ -924,6 +912,17 @@ onMounted(() => {
 }
 
 .ttl-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
+</style>
+
+<style>
+/* 任务详情弹窗：固定高度 + 滚动。
+   由于 Element Plus 的 dialog 组件不受 Vue scoped :deep() 穿透，
+   故使用非 scoped 全局样式。 */
+.jd-dialog .el-dialog__body {
+  padding: 0;
+  max-height: calc(80vh - 100px);
+  overflow-y: auto;
+}
 </style>
 
 
