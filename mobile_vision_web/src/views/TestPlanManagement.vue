@@ -470,11 +470,18 @@
                   <span class="stat-label">动态分配</span>
                 </div>
               </div>
-              <el-button type="danger" size="small" @click="batchRemoveRelations" :disabled="selectedToRemove.length === 0">
-                <el-icon :size="13"><Delete /></el-icon>
-                批量删除 ({{ selectedToRemove.length }})
-              </el-button>
+              <div class="associated-actions">
+                <el-button type="primary" plain size="small" @click="openBatchEditRelationDialog" :disabled="selectedToRemove.length === 0">
+                  <el-icon :size="13"><Setting /></el-icon>
+                  批量修改 ({{ selectedToRemove.length }})
+                </el-button>
+                <el-button type="danger" size="small" @click="batchRemoveRelations" :disabled="selectedToRemove.length === 0">
+                  <el-icon :size="13"><Delete /></el-icon>
+                  批量删除 ({{ selectedToRemove.length }})
+                </el-button>
+              </div>
             </div>
+            <div class="case-table-wrap">
             <el-table
               ref="associatedTableRef"
               :data="associatedCaseList"
@@ -482,7 +489,7 @@
               class="case-table"
               stripe
               style="width: 100%"
-              height="420"
+              height="100%"
             >
               <el-table-column type="selection" width="50" />
               <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
@@ -545,6 +552,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
           </div>
         </el-tab-pane>
         <el-tab-pane label="添加用例" name="add">
@@ -565,6 +573,7 @@
                 </el-input>
               </div>
             </div>
+            <div class="case-table-wrap">
             <el-table
               ref="addTableRef"
               :data="availableCaseList"
@@ -573,7 +582,7 @@
               class="case-table"
               stripe
               style="width: 100%"
-              height="360"
+              height="100%"
             >
               <el-table-column type="selection" width="50" />
               <el-table-column prop="case_name" label="用例名称" min-width="180" show-overflow-tooltip />
@@ -593,6 +602,7 @@
                 </template>
               </el-table-column>
             </el-table>
+            </div>
             <div v-if="selectedToAdd.length > 0" class="batch-config">
               <div class="batch-config-header">
                 <div class="batch-config-badge">{{ selectedToAdd.length }}</div>
@@ -640,6 +650,7 @@
       class="er-dialog"
       destroy-on-close
       align-center
+      @close="editRelationBatchMode = false"
     >
       <template #header>
         <div class="er-header">
@@ -647,34 +658,44 @@
             <el-icon><Setting /></el-icon>
           </div>
           <div class="er-header-text">
-            <div class="er-header-title">编辑用例配置</div>
-            <div class="er-header-subtitle">为该用例单独覆盖计划默认配置</div>
+            <div class="er-header-title">{{ editRelationBatchMode ? '批量修改配置' : '编辑用例配置' }}</div>
+            <div class="er-header-subtitle">
+              {{ editRelationBatchMode ? `已选 ${selectedToRemove.length} 个用例，保存后统一应用` : '为该用例单独覆盖计划默认配置' }}
+            </div>
           </div>
         </div>
       </template>
 
       <div class="er-case-card">
-        <div class="er-case-card-name">{{ editRelationForm.case_name || '未命名用例' }}</div>
-        <div class="er-case-card-meta">
-          <el-tag
-            v-if="editRelationForm.case_level"
-            size="small"
-            :type="editRelationForm.case_level === 'P0' ? 'danger' : editRelationForm.case_level === 'P1' ? 'warning' : 'info'"
-            effect="light"
-            round
-          >
-            {{ editRelationForm.case_level }}
-          </el-tag>
-          <el-tag
-            v-if="editRelationForm.status"
-            size="small"
-            :type="editRelationForm.status === 'completed' ? 'success' : editRelationForm.status === 'disabled' ? 'info' : 'warning'"
-            effect="plain"
-            round
-          >
-            {{ editRelationForm.status === 'completed' ? '已完成' : editRelationForm.status === 'disabled' ? '已禁用' : '调试中' }}
-          </el-tag>
-        </div>
+        <template v-if="editRelationBatchMode">
+          <div class="er-case-card-name">已选 {{ selectedToRemove.length }} 个用例</div>
+          <div class="er-case-card-meta">
+            <el-tag size="small" type="primary" effect="light" round>批量修改</el-tag>
+          </div>
+        </template>
+        <template v-else>
+          <div class="er-case-card-name">{{ editRelationForm.case_name || '未命名用例' }}</div>
+          <div class="er-case-card-meta">
+            <el-tag
+              v-if="editRelationForm.case_level"
+              size="small"
+              :type="editRelationForm.case_level === 'P0' ? 'danger' : editRelationForm.case_level === 'P1' ? 'warning' : 'info'"
+              effect="light"
+              round
+            >
+              {{ editRelationForm.case_level }}
+            </el-tag>
+            <el-tag
+              v-if="editRelationForm.status"
+              size="small"
+              :type="editRelationForm.status === 'completed' ? 'success' : editRelationForm.status === 'disabled' ? 'info' : 'warning'"
+              effect="plain"
+              round
+            >
+              {{ editRelationForm.status === 'completed' ? '已完成' : editRelationForm.status === 'disabled' ? '已禁用' : '调试中' }}
+            </el-tag>
+          </div>
+        </template>
       </div>
 
       <el-form :model="editRelationForm" label-position="top" class="er-form">
@@ -812,7 +833,7 @@
       <template #footer>
         <div class="er-footer">
           <el-button @click="editRelationDialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="confirmEditRelation">保存配置</el-button>
+          <el-button type="primary" @click="confirmEditRelation">{{ editRelationBatchMode ? '批量修改' : '保存配置' }}</el-button>
         </div>
       </template>
     </el-dialog>
@@ -872,6 +893,7 @@ const dialogTitle = ref('')
 const viewDialogVisible = ref(false)
 const addCaseDialogVisible = ref(false)
 const editRelationDialogVisible = ref(false)
+const editRelationBatchMode = ref(false)  // 编辑弹窗是否处于批量修改模式
 const executeDialogVisible = ref(false)
 const deleteDialogVisible = ref(false)
 
@@ -1584,6 +1606,32 @@ const openEditRelationDialog = (row) => {
   editRelationForm.llm_name = row.llm_name || ''
   editRelationForm.llm_is_active = row.llm_is_active !== false
   editRelationForm.llm_unavailable_reason = row.llm_unavailable_reason || null
+  editRelationBatchMode.value = false
+  editRelationDialogVisible.value = true
+}
+
+const openBatchEditRelationDialog = () => {
+  const selected = selectedToRemove.value
+  if (selected.length === 0) {
+    ElMessage.warning('请先勾选要修改的用例')
+    return
+  }
+  // 以第一条选中用例的当前配置作为批量表单的默认值
+  const first = selected[0]
+  editRelationForm.id = null
+  editRelationForm.device_id = first.device_id || ''
+  editRelationForm.device_name = first.device_name || ''
+  editRelationForm.llm_credential_id = first.llm_credential_id || null
+  editRelationForm.yolo_model_id = first.yolo_model_id || null
+  editRelationForm.ocr_engine = first.ocr_engine || null
+  editRelationForm.reasoning_effort = first.reasoning_effort || null
+  editRelationForm.case_name = ''
+  editRelationForm.case_level = ''
+  editRelationForm.status = ''
+  editRelationForm.llm_name = first.llm_name || ''
+  editRelationForm.llm_is_active = first.llm_is_active !== false
+  editRelationForm.llm_unavailable_reason = first.llm_unavailable_reason || null
+  editRelationBatchMode.value = true
   editRelationDialogVisible.value = true
 }
 
@@ -1599,21 +1647,48 @@ const confirmEditRelation = async () => {
       return
     }
   }
-  try {
-    const params = { id: editRelationForm.id }
+
+  const buildParams = (id) => {
+    const params = {}
+    if (id !== undefined) params.id = id
     if (editRelationForm.device_id !== undefined) params.device_id = editRelationForm.device_id
     if (editRelationForm.llm_credential_id !== undefined) params.llm_credential_id = editRelationForm.llm_credential_id
     if (editRelationForm.yolo_model_id !== undefined) params.yolo_model_id = editRelationForm.yolo_model_id
     if (editRelationForm.ocr_engine !== undefined) params.ocr_engine = editRelationForm.ocr_engine
     if (editRelationForm.reasoning_effort !== undefined) params.reasoning_effort = editRelationForm.reasoning_effort
+    return params
+  }
 
-    const result = await updateCaseRelation(params)
-    if (result.code === 0) {
-      ElMessage.success('更新成功')
+  try {
+    if (editRelationBatchMode.value) {
+      const selected = selectedToRemove.value
+      if (selected.length === 0) {
+        ElMessage.warning('请先勾选要修改的用例')
+        return
+      }
+      for (const item of selected) {
+        const result = await updateCaseRelation(buildParams(item.id))
+        if (result.code !== 0) {
+          ElMessage.error(`用例「${item.case_name || item.id}」更新失败：${result.message || '未知错误'}`)
+          return
+        }
+      }
       editRelationDialogVisible.value = false
       await refreshAssociatedCases()
+      selectedToRemove.value = []
+      if (associatedTableRef.value) {
+        associatedTableRef.value.clearSelection()
+      }
+      ElMessage.success(`批量更新 ${selected.length} 个用例成功`)
     } else {
-      ElMessage.error(result.message || '更新失败')
+      const result = await updateCaseRelation(buildParams(editRelationForm.id))
+      if (result.code === 0) {
+        ElMessage.success('更新成功')
+        editRelationDialogVisible.value = false
+        await refreshAssociatedCases()
+      } else {
+        ElMessage.error(result.message || '更新失败')
+      }
     }
   } catch (error) {
     console.error('更新关联失败:', error)
@@ -2070,6 +2145,14 @@ onMounted(() => {
   margin-left: 8px;
 }
 
+/* 表格包裹层：填满 tab 可用高度（底部由 drawer body padding 留 20px） */
+.case-table-wrap {
+  flex: 1;
+  min-height: 200px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
 .case-table {
   border-radius: 8px;
 }
@@ -2080,14 +2163,17 @@ onMounted(() => {
   padding-top: 12px;
 }
 
-/* ===== 关联用例 Drawer ===== */
-.case-drawer :deep(.el-drawer__header) {
+/* ===== 关联用例 Drawer =====
+   抽屉内容通过 <teleport> 挂到 body，.el-drawer 根元素不带组件的 scoped data 属性，
+   因此对 Element Plus 内部元素的规则必须用 :global()，否则 :deep 编译后的
+   `.case-drawer[data-v-xxx] .el-drawer__body` 永远匹配不上。 */
+.case-drawer :global(.el-drawer__header) {
   padding: 20px 24px 16px;
   margin-bottom: 0;
   border-bottom: 1px solid #f0f0f0;
 }
 
-.case-drawer :deep(.el-drawer__body) {
+.case-drawer :global(.el-drawer__body) {
   padding: 0 20px 20px;
   display: flex;
   flex-direction: column;
@@ -2101,13 +2187,13 @@ onMounted(() => {
   overflow: hidden;
 }
 
-.case-drawer :deep(.el-tabs__content) {
+.case-drawer :global(.el-tabs__content) {
   flex: 1;
   overflow: hidden;
   padding-bottom: 0;
 }
 
-.case-drawer :deep(.el-tab-pane) {
+.case-drawer :global(.el-tab-pane) {
   height: 100%;
   overflow-y: auto;
 }
@@ -2177,6 +2263,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.associated-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .stat-item {
