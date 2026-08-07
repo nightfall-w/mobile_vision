@@ -57,6 +57,24 @@ def unlock_device(device_id: str, db: Session):
         db.commit()
 
 
+def unlock_device_if_owned(db: Session, device_id: str, owner_job_ids: set) -> bool:
+    """
+    仅当设备锁归属于 owner_job_ids 中的某个 Job 时才解锁设备。
+
+    设备锁由“正在执行/刚提交”的 Job 持有（DeviceLock.task_id 存的就是 Job ID）。
+    删除/放弃排队中的任务时若直接 unlock_device，会误删同设备上另一个仍在运行的
+    Job 的锁，导致系统误判设备空闲、同一台设备并发执行。调用方需传入本任务/本 Job
+    的 job_id 集合。
+
+    :return: 是否实际解锁（锁不存在或非本任务持有则返回 False）
+    """
+    lock = db.query(DeviceLock).filter(DeviceLock.device_id == device_id).first()
+    if lock and lock.task_id in owner_job_ids:
+        unlock_device(device_id, db)
+        return True
+    return False
+
+
 def get_device_by_android_id(android_id: str, db: Session) -> Optional[AndroidDevice]:
     """根据 android_id 查找当前连接的设备"""
     return db.query(AndroidDevice).filter(
