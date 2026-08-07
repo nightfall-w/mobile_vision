@@ -20,6 +20,11 @@ class TestPlan(Base):
     enable_schedule = Column(Boolean, default=False, comment="是否启用定时执行")
     schedule_cron_expression = Column(String(200), nullable=True, comment="Cron表达式(6段: 秒 分 时 日 月 周)")
     schedule_task_id = Column(String(100), nullable=True, comment="APScheduler任务ID，格式 testplan_{plan_id}")
+    enable_notification = Column(Boolean, default=False, comment="是否发送通知")
+    notify_on_failure_only = Column(Boolean, default=False, comment="仅失败时通知")
+    wecom_webhooks = Column(JSON, default=list, comment="企微机器人webhook列表")
+    lark_webhooks = Column(JSON, default=list, comment="飞书机器人webhook列表")
+    dingtalk_webhooks = Column(JSON, default=list, comment="钉钉机器人webhook列表")
     create_time = Column(DateTime, default=datetime.now)
     update_time = Column(DateTime, default=datetime.now, onupdate=datetime.now)
     is_deleted = Column(Boolean, default=False)
@@ -34,6 +39,11 @@ class TestPlan(Base):
             'enable_schedule': bool(self.enable_schedule),
             'schedule_cron_expression': self.schedule_cron_expression,
             'schedule_task_id': self.schedule_task_id,
+            'enable_notification': bool(self.enable_notification),
+            'notify_on_failure_only': bool(self.notify_on_failure_only),
+            'wecom_webhooks': self.wecom_webhooks or [],
+            'lark_webhooks': self.lark_webhooks or [],
+            'dingtalk_webhooks': self.dingtalk_webhooks or [],
             'create_time': self.create_time.strftime('%Y-%m-%d %H:%M:%S') if self.create_time else None,
             'update_time': self.update_time.strftime('%Y-%m-%d %H:%M:%S') if self.update_time else None,
             'is_deleted': self.is_deleted

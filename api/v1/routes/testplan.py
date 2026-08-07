@@ -173,6 +173,11 @@ async def create_plan(
         author=current_user.username,
         enable_schedule=bool(request.enable_schedule),
         schedule_cron_expression=request.schedule_cron_expression,
+        enable_notification=bool(request.enable_notification),
+        notify_on_failure_only=bool(request.notify_on_failure_only),
+        wecom_webhooks=request.wecom_webhooks or [],
+        lark_webhooks=request.lark_webhooks or [],
+        dingtalk_webhooks=request.dingtalk_webhooks or [],
         create_time=datetime.now(),
         update_time=datetime.now(),
     )
@@ -233,6 +238,18 @@ async def update_plan(
 
         plan.enable_schedule = bool(new_enable)
         plan.schedule_cron_expression = new_cron
+
+    # 通知配置：未传字段表示不改动
+    if request.enable_notification is not None:
+        plan.enable_notification = bool(request.enable_notification)
+    if request.notify_on_failure_only is not None:
+        plan.notify_on_failure_only = bool(request.notify_on_failure_only)
+    if request.wecom_webhooks is not None:
+        plan.wecom_webhooks = request.wecom_webhooks
+    if request.lark_webhooks is not None:
+        plan.lark_webhooks = request.lark_webhooks
+    if request.dingtalk_webhooks is not None:
+        plan.dingtalk_webhooks = request.dingtalk_webhooks
 
     plan.update_time = datetime.now()
     db.commit()

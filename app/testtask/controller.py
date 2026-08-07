@@ -3,12 +3,11 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from app.llm.models import LLMCredential
 from app.testcase.models import TestCase
-from app.testplan.models import DeviceLock
 from app.testplan.device_queue import remove_task_from_queue
 from app.testtask.models import TestTask, TestJob
 from app.task_monitor.models import store
 from app.yolo.controller import get_all_models
-from app.testplan.controller import is_device_locked, unlock_device
+from app.testplan.controller import unlock_device_if_owned
 from core.enums import TaskStatus
 from utils.task_cancel import send_cancel_signal
 
@@ -153,10 +152,11 @@ class TestTaskCRUD:
         for job in jobs:
             remove_task_from_queue(str(job.device_android_id), job.job_id)
             store.delete_task(job.job_id)
+        # 只有设备锁属于本任务自己的 Job 时才解锁，避免误删同设备上其他运行中任务的锁
+        owner_job_ids = {job.job_id for job in jobs}
         device_ids = set(job.device_id for job in jobs)
         for device_id in device_ids:
-            if is_device_locked(device_id, db):
-                unlock_device(device_id, db)
+            unlock_device_if_owned(db, device_id, owner_job_ids)
 
         task.is_deleted = True
         task.update_time = datetime.now()
@@ -188,22 +188,25 @@ class TestTaskCRUD:
                 if not was_running:
                     store.delete_task(job.job_id)
 
-        task.status = TaskStatus.ABORTED.value
-        task.end_time = datetime.now()
-        if task.start_time:
-            task.total_duration = int(
-                (task.end_time - task.start_time).total_seconds()
-            )
-        db.commit()
+        # 仅当确实放弃了至少一个 Job 时才把任务改写为 aborted；
+        # 若 Job 已全部终态（如已完成/已失败），保持其真实终态，避免状态被误覆盖
+        if aborted_count > 0:
+            task.status = TaskStatus.ABORTED.value
+            task.end_time = datetime.now()
+            if task.start_time:
+                task.total_duration = int(
+                    (task.end_time - task.start_time).total_seconds()
+                )
+            db.commit()
 
         # 重新统计各状态 Job 数量
         _refresh_task_job_counts(db, task_id)
 
-        # 释放所有关联设备的锁
+        # 释放所有关联设备的锁（仅限本任务自己的 Job 持有的锁，避免误删其他运行中任务的锁）
+        owner_job_ids = {job.job_id for job in jobs}
         device_ids = set(job.device_id for job in jobs)
         for device_id in device_ids:
-            if is_device_locked(device_id, db):
-                unlock_device(device_id, db)
+            unlock_device_if_owned(db, device_id, owner_job_ids)
 
 
         return True, f"已放弃任务及其 {aborted_count} 个 Job"
@@ -298,10 +301,8 @@ class TestJobCRUD:
         _abort_single_job(db, job)
         db.commit()
 
-        if is_device_locked(job.device_id, db):
-            lock = db.query(DeviceLock).filter(DeviceLock.device_id == job.device_id).first()
-            if lock:
-                unlock_device(job.device_id, db)
+        # 仅当设备锁属于本 Job 时才解锁，避免误删同设备上其他 Job 持有的锁
+        unlock_device_if_owned(db, job.device_id, {job.job_id})
 
         # 只清理 PENDING Job 的 Redis 状态（RUNNING 的由 consumer 自己清理）
         if not was_running:

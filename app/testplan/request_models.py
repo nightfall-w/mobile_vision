@@ -13,6 +13,11 @@ class CreatePlanRequest(BaseModel):
     workspace_id: int = Field(..., description="工作空间ID")
     enable_schedule: Optional[bool] = Field(False, description="是否启用定时执行")
     schedule_cron_expression: Optional[str] = Field(None, description="Cron表达式(6段: 秒 分 时 日 月 周)")
+    enable_notification: Optional[bool] = Field(False, description="是否发送通知")
+    notify_on_failure_only: Optional[bool] = Field(False, description="仅失败时通知")
+    wecom_webhooks: Optional[List[str]] = Field(default_factory=list, description="企微webhook列表")
+    lark_webhooks: Optional[List[str]] = Field(default_factory=list, description="飞书webhook列表")
+    dingtalk_webhooks: Optional[List[str]] = Field(default_factory=list, description="钉钉webhook列表")
 
 
 class UpdatePlanRequest(BaseModel):
@@ -22,6 +27,11 @@ class UpdatePlanRequest(BaseModel):
     description: Optional[str] = Field(None, description="计划描述")
     enable_schedule: Optional[bool] = Field(None, description="是否启用定时执行")
     schedule_cron_expression: Optional[str] = Field(None, description="Cron表达式(6段: 秒 分 时 日 月 周)")
+    enable_notification: Optional[bool] = Field(None, description="是否发送通知")
+    notify_on_failure_only: Optional[bool] = Field(None, description="仅失败时通知")
+    wecom_webhooks: Optional[List[str]] = Field(None, description="企微webhook列表")
+    lark_webhooks: Optional[List[str]] = Field(None, description="飞书webhook列表")
+    dingtalk_webhooks: Optional[List[str]] = Field(None, description="钉钉webhook列表")
 
 
 class AddCaseRelationRequest(BaseModel):
