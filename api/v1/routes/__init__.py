@@ -5,7 +5,7 @@
 @Time：2026/4/16 12:38
 """
 from fastapi import APIRouter
-from api.v1.routes import dataset, annotation, train, model, device, workspace, user, llm, testcase, testtask, testplan, monitor
+from api.v1.routes import dataset, annotation, train, model, device, workspace, user, llm, testcase, testtask, testplan, monitor, setting
 
 router = APIRouter(prefix="/v1")
 router.include_router(dataset.router)
@@ -20,6 +20,7 @@ router.include_router(testcase.router)
 router.include_router(testtask.router)
 router.include_router(testplan.router)
 router.include_router(monitor.router)
+router.include_router(setting.router)
 
 
 @router.get("/health")

@@ -3,9 +3,6 @@
 @Description：任务完成通知推送 —— 支持企业微信、飞书、钉钉机器人 Webhook
 @Author：baojun.wang
 """
-import json
-import os
-import socket
 from datetime import datetime
 from typing import Optional
 
@@ -13,19 +10,6 @@ import requests
 
 from core.enums import TaskStatus
 from utils.custom_logging import logger
-
-
-def _get_local_ip() -> str:
-    """获取本机局域网 IP，用于构造报告链接"""
-    try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s.connect(("8.8.8.8", 80))
-        ip = s.getsockname()[0]
-        s.close()
-        return ip
-    except Exception:
-        return "127.0.0.1"
-
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -181,6 +165,7 @@ def generate_task_report(task_id: int, db) -> Optional[str]:
     from app.testtask.models import TestTask, TestJob
     from app.testcase.models import TestCase
     from core.config import REPORT_ROOT, REPORT_URL
+    from core.system_setting import get_backend_base_url, get_frontend_base_url
 
     task = db.query(TestTask).filter(TestTask.task_id == task_id).first()
     if not task:
@@ -205,8 +190,7 @@ def generate_task_report(task_id: int, db) -> Optional[str]:
         TaskStatus.ABORTED.value: '<span class="badge badge-warning">放弃</span>',
     }
 
-    frontend_port = os.getenv("FRONTEND_PORT", "5173")
-    frontend_base = f"http://{_get_local_ip()}:{frontend_port}"
+    frontend_base = get_frontend_base_url(db)
 
     jobs_rows = ""
     for j in jobs:
@@ -309,8 +293,8 @@ tr:hover td {{ background: #fafafa; }}
         file_path = REPORT_ROOT / f"task_{task_id}.html"
         file_path.write_text(html, encoding="utf-8")
         logger.info(f"[报告] 任务 {task_id} 报告已生成: {file_path}")
-        backend_port = os.getenv("BACKEND_PORT", "8080")
-        url = f"http://{_get_local_ip()}:{backend_port}{REPORT_URL}/task_{task_id}.html"
+        backend_base = get_backend_base_url(db)
+        url = f"{backend_base}{REPORT_URL}/task_{task_id}.html"
         return url
     except Exception as e:
         logger.error(f"[报告] 生成任务 {task_id} 报告失败: {e}")

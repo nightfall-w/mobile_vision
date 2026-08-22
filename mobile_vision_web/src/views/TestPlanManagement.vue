@@ -1352,13 +1352,13 @@ const handleDialogOpen = async () => {
     const [llmResult, yoloResult] = await Promise.all([
       // 仅取当前工作空间 + 系统级别的可用凭证（接口已过滤禁用与已删除）
       getWorkspaceLLMCredentials({ workspace_id: workspaceId.value }),
-      getModelsList({ page: 1, page_size: 50, workspace_id: 1, model_type: 'yolo' })
+      getModelsList({ page: 1, page_size: 50, workspace_id: workspaceId.value, model_type: 'yolo' })
     ])
     llmOptions.value = llmResult.code === 0 ? llmResult.data.list.map(l => ({ id: l.id, model: l.model, base_url: l.base_url })) : []
     yoloOptions.value = yoloResult.code === 0 ? yoloResult.data.models : []
 
     const [caseResult, devicesResult] = await Promise.all([
-      getTestCaseList({ workspace_id: 1, page_num: casePagination.page_num, page_size: casePagination.page_size }),
+      getTestCaseList({ workspace_id: workspaceId.value, page_num: casePagination.page_num, page_size: casePagination.page_size }),
       getDeviceList()
     ])
 
@@ -1397,7 +1397,7 @@ const fetchAvailableCases = async () => {
   caseLoading.value = true
   try {
     const result = await getTestCaseList({
-      workspace_id: 1,
+      workspace_id: workspaceId.value,
       page_num: casePagination.page_num,
       page_size: casePagination.page_size,
       case_name: searchKeyword.value

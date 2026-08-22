@@ -1,9 +1,6 @@
 <template>
   <div class="system-config-container">
-    <!-- 头部导航 -->
-    <Header/>
-
-    <div v-if="hasPermission" class="main-content">
+    <div v-if="hasPermission" class="sc-sticky">
       <div class="config-header">
         <!-- 左侧：标题和描述 -->
         <div class="header-left">
@@ -47,8 +44,9 @@
           </el-button>
         </div>
       </div>
+    </div>
 
-
+    <div v-if="hasPermission" class="sc-scroll">
       <!-- 配置项表格 -->
       <div class="table-container">
         <el-table
@@ -57,6 +55,7 @@
           style="width: 100%"
           class="config-table"
           stripe
+          height="100%"
           :cell-style="{ textAlign: 'center' }"
           :header-cell-style="{ textAlign: 'center', background: '#fafafa', color: '#606266', fontWeight: 600, fontSize: '12px' }"
         >
@@ -105,7 +104,7 @@
               <span class="time-text">{{ formatTime(scope.row.update_time) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="100" fixed="right" align="center">
+          <el-table-column label="操作" width="200" fixed="right" align="center">
             <template #default="scope">
               <div class="action-cell">
                 <el-button
@@ -116,6 +115,17 @@
                   class="action-button"
                 >
                   编辑
+                </el-button>
+                <el-button
+                  v-if="URL_KEYS.includes(scope.row.key)"
+                  size="small"
+                  type="success"
+                  link
+                  :disabled="!scope.row.value"
+                  @click="checkReachable(scope.row.id, scope.row.value)"
+                  class="action-button"
+                >
+                  测试连通性
                 </el-button>
               </div>
             </template>
@@ -358,12 +368,12 @@ import {ref, reactive, onMounted, computed} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {Lock} from '@element-plus/icons-vue'
 import {useRouter} from 'vue-router'
-import Header from '@/components/Header.vue'
 import {
   getExtraAdminList,
   getSystemConfigList,
   updateSuperAdmin,
-  updateSystemConfig
+  updateSystemConfig,
+  checkSystemConfigReachable
 } from '@/network/api.js'
 import {getUserList} from '@/network/api.js'
 
@@ -371,6 +381,9 @@ const router = useRouter()
 
 // 权限控制
 const hasPermission = ref(true)
+
+// 地址类配置项：保存后需要去掉末尾斜杠，并探测连通性
+const URL_KEYS = ['BACKEND_BASE_URL', 'FRONTEND_BASE_URL']
 
 // 数据状态
 const configList = ref([])
@@ -781,20 +794,16 @@ const handleSubmit = async () => {
     await configFormRef.value.validate();
     submitLoading.value = true;
 
-    // 对特定键名的值进行处理，去除末尾的斜杠
+    // 地址类配置去除末尾斜杠，避免拼接出 //path
     let valueToSubmit = configForm.value;
-    if ((configForm.key === 'GITLAB_API_URL' || configForm.key === 'SERVER_DOMAIN') && valueToSubmit) {
-      // 去除末尾的一个或多个斜杠
+    if (URL_KEYS.includes(configForm.key) && valueToSubmit) {
       valueToSubmit = valueToSubmit.replace(/\/+$/, '');
     }
 
     const res = await updateSystemConfig({
       config_id: configForm.id,
-      key: configForm.key,
       value: valueToSubmit,
-      desc: configForm.desc,
-      type: configForm.type,
-      required: configForm.required
+      desc: configForm.desc
     });
 
     if (res.code === 0) {
@@ -802,9 +811,9 @@ const handleSubmit = async () => {
       dialogVisible.value = false;
       fetchConfigList();
 
-      // 如果是SERVER_DOMAIN配置项，检查域名是否可访问
-      if (configForm.key === 'SERVER_DOMAIN') {
-        await checkServerDomain(valueToSubmit);
+      // 地址类配置保存后由后端探测连通性（避免浏览器跨域造成误判）
+      if (URL_KEYS.includes(configForm.key) && valueToSubmit) {
+        await checkReachable(configForm.id, valueToSubmit);
       }
     } else {
       ElMessage.error(res.message || '更新失败');
@@ -823,91 +832,22 @@ const handleSubmit = async () => {
 
 
 
-// 检查SERVER_DOMAIN域名是否可访问
-const checkServerDomain = async (domain) => {
+// 由后端探测地址连通性，并回写 verified 状态
+const checkReachable = async (configId, value) => {
   try {
-    // 确保域名以http://或https://开头
-    let url = domain;
-    if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'http://' + url;
-    }
+    const res = await checkSystemConfigReachable({config_id: configId});
+    await fetchConfigList();
 
-    // 创建 AbortController 用于超时控制
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
-
-    try {
-      // 发起GET请求检查域名是否可访问
-      const response = await fetch(url, {
-        method: 'GET',
-        signal: controller.signal // 使用 signal 控制请求
-      });
-
-      // 清除超时定时器
-      clearTimeout(timeoutId);
-
-      // 查找SERVER_DOMAIN配置项的ID
-      const serverDomainConfig = configList.value.find(config => config.key === 'SERVER_DOMAIN');
-      const serverDomainConfigId = serverDomainConfig ? serverDomainConfig.id : null;
-
-      if (serverDomainConfigId) {
-        // 域名可访问，更新verified字段为true
-        await updateSystemConfig({
-          config_id: serverDomainConfigId,
-          verified: true
-        });
-
-        // 重新获取配置列表以更新verified状态
-        await fetchConfigList();
-      }
-
-      ElMessageBox.alert(
-        `域名 ${domain} 可访问！状态码: ${response.status}`,
-        '域名检查结果',
-        {
-          type: 'success',
-          confirmButtonText: '确定'
-        }
-      );
-    } catch (fetchError) {
-      // 清除超时定时器
-      clearTimeout(timeoutId);
-
-      // 查找SERVER_DOMAIN配置项的ID
-      const serverDomainConfig = configList.value.find(config => config.key === 'SERVER_DOMAIN');
-      const serverDomainConfigId = serverDomainConfig ? serverDomainConfig.id : null;
-
-      if (serverDomainConfigId) {
-        // 域名不可访问，更新verified字段为false
-        await updateSystemConfig({
-          config_id: serverDomainConfigId,
-          verified: false
-        });
-
-        // 重新获取配置列表以更新verified状态
-        await fetchConfigList();
-      }
-
-      // 检查是否是超时错误
-      let errorMessage = '';
-      if (fetchError.name === 'AbortError') {
-        errorMessage = '请求超时（超过5秒）';
-      } else {
-        errorMessage = fetchError.message;
-      }
-
-      throw new Error(errorMessage);
-    }
-  } catch (error) {
     ElMessageBox.alert(
-      `域名 ${domain} 无法访问，请检查配置`,
-      '域名检查结果',
+      res.message || (res.data?.reachable ? '地址可访问' : '地址无法访问'),
+      '连通性检查结果',
       {
-        type: 'error',
-        dangerouslyUseHTMLString: true,
+        type: res.data?.reachable ? 'success' : 'error',
         confirmButtonText: '确定'
       }
     );
+  } catch (error) {
+    ElMessage.warning(`地址 ${value} 连通性检查失败: ${error.message}`);
   }
 }
 
@@ -1007,13 +947,33 @@ const goToHome = () => {
   box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
 }
 
+/* 与 LLM 凭证管理页一致：整页 flex 纵向布局，表格区自适应，分页固定在底部 */
 .system-config-container {
-  background: #f5f7fa;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background: #f5f5f7;
 }
 
-.main-content {
+.sc-sticky {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  padding-bottom: 8px;
+  background: #f5f5f7;
+}
+
+.sc-scroll {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
+  padding: 2px;
+  display: flex;
+  flex-direction: column;
 }
 
 .page-header {
@@ -1096,16 +1056,16 @@ const goToHome = () => {
 }
 
 .table-container {
+  flex: 1;
+  min-height: 0;
   background: #fff;
   border: 1px solid #e8e8e8;
   border-radius: 12px;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 .config-table {
   border: none;
-  flex: 1;
 }
 
 /* 标签样式 */
@@ -1202,7 +1162,14 @@ const goToHome = () => {
 .action-cell {
   display: flex;
   justify-content: center;
+  align-items: center;
   gap: 10px;
+  padding: 0 12px;
+}
+
+/* el-button 默认给相邻按钮加 margin-left，与 gap 叠加会挤出单元格，这里统一由 gap 控制间距 */
+.action-cell :deep(.el-button + .el-button) {
+  margin-left: 0;
 }
 
 .action-button {
@@ -1380,7 +1347,7 @@ const goToHome = () => {
   padding-left: 2px;
 }
 
-.sc-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; }
+.sc-page-footer { background: #fff; border-radius: 12px; border: 1px solid #e8e8e8; display: flex; justify-content: center; align-items: center; padding: 10px 16px; flex-shrink: 0; margin-top: 8px; }
 
 /* 响应式调整 */
 @media (max-width: 768px) {

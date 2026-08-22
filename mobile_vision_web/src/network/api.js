@@ -87,6 +87,10 @@ export function updateSystemConfig(params) {
   return request.put('/api/v1/setting/system-config/update', params)
 }
 
+export function checkSystemConfigReachable(params) {
+  return request.post('/api/v1/setting/system-config/check-reachable', params)
+}
+
 export function updateSuperAdmin(params) {
   return request.post('/api/v1/user/super-admin/update', params);
 }
