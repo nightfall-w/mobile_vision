@@ -93,6 +93,13 @@
                 <span v-if="!isCollapse">LLM凭证</span>
               </el-menu-item>
 
+              <el-menu-item index="/system-config">
+                <el-icon class="text-lg">
+                  <Setting/>
+                </el-icon>
+                <span v-if="!isCollapse">系统配置</span>
+              </el-menu-item>
+
               </template>
           </el-menu>
           </div>
@@ -129,6 +136,7 @@ import {
   List,
   FolderOpened,
   TrendCharts,
+  Setting,
   Cpu
 } from '@element-plus/icons-vue'
 import Header from '@/components/Header.vue'

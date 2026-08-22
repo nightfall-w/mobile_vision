@@ -382,7 +382,27 @@ CREATE TABLE `task_execution_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='任务执行日志表';
 
 -- ============================================================
--- 10. 初始化默认数据
+-- 10. 系统配置
+-- ============================================================
+
+DROP TABLE IF EXISTS `system_config`;
+CREATE TABLE `system_config` (
+  `id`          INT          NOT NULL AUTO_INCREMENT COMMENT '配置项ID',
+  `key`         VARCHAR(100) NOT NULL COMMENT '配置项键名',
+  `value`       TEXT         NULL     COMMENT '配置项值（统一按字符串存，按 type 解析）',
+  `desc`        VARCHAR(500) NULL     COMMENT '配置项描述',
+  `type`        VARCHAR(20)  NOT NULL DEFAULT 'STRING' COMMENT '值类型(STRING/NUMBER/BOOLEAN/DICT/LIST)',
+  `required`    TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否必填',
+  `verified`    TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '是否通过可用性验证',
+  `update_user` VARCHAR(100) NULL     COMMENT '更新人',
+  `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_key` (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
+
+-- ============================================================
+-- 11. 初始化默认数据
 -- ============================================================
 
 -- 默认角色（使用 IGNORE 避免重复插入）
@@ -392,6 +412,11 @@ INSERT IGNORE INTO `member_role` (`role_id`, `role_name`, `role_description`) VA
 (3, '产品', '负责产品设计和规划的人员'),
 (4, '项目经理', '负责项目管理和协调的人员'),
 (7, '管理员', '拥有workspace下所有权限');
+
+-- 默认系统配置项（留空则代码回退为本机 IP + 端口）
+INSERT IGNORE INTO `system_config` (`key`, `value`, `desc`, `type`, `required`) VALUES
+('BACKEND_BASE_URL',  '', '后端服务对外访问地址（含协议与端口，如 http://mv.example.com:8080）。通知消息里的 HTML 报告链接以此为前缀。留空则回退为本机 IP + BACKEND_PORT。', 'STRING', 0),
+('FRONTEND_BASE_URL', '', '前端页面对外访问地址（含协议与端口，如 http://mv.example.com:5173）。报告中的 Job 监控页跳转链接以此为前缀。留空则回退为本机 IP + FRONTEND_PORT。', 'STRING', 0);
 
 SET FOREIGN_KEY_CHECKS = 1;
 
