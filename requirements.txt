@@ -28,3 +28,5 @@ starlette>=1.0.0
 fire>=0.7.1
 aiomysql>=0.2.0
 uiautomator2>=3.0.0
+
+requests>=2.31.0

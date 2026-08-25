@@ -13,6 +13,7 @@ from typing import Optional, List, Dict, Tuple
 from utils.custom_logging import logger
 from utils.task_cancel import check_cancel_signal
 from .ai_service import AIService
+from .http_step import execute_http, render_template
 from .types import (
     AgentConfig, PageContext, ActionStep, ActionPlan, ExecutionResult,
     Task, TaskList, TaskState, StepState, StepExecutionRecord,
@@ -38,6 +39,10 @@ class Agent:
         self.current_step_number = 0
         self.ai_call_count = 0
         self.start_time = 0.0
+
+        # 步骤间共享变量池：http 步骤提取的值存这里，后续步骤可用 {{变量名}} 引用
+        # （如先调接口拿到 card_no，再在 input 的 text 里写 {{card_no}}）
+        self.variables: Dict[str, object] = {}
 
         # 状态上报回调
         self.on_state_update: Optional[callable] = None
@@ -100,6 +105,7 @@ class Agent:
         """执行任务 - 核心入口"""
         self._check_not_destroyed()
         self.start_time = time.time()
+        self.variables = {}  # 每次任务执行重置变量池
         self._report_log("INFO", f"开始执行任务: {task_description}")
         self._report_state("task_started", {"description": task_description})
 
@@ -523,12 +529,14 @@ class Agent:
                         历史操作记录（最近7条）：
                         {operation_history_str}
 
+                        {f"📦 当前可用变量（由之前的 http 步骤提取，可在任意文本字段中用 {{{{变量名}}}} 引用）：" + json.dumps(self.variables, ensure_ascii=False) if self.variables else "📦 当前可用变量：（无）"}
+
                         {feedback}
 
                         操作类型说明：
                         - tap: 点击坐标 (需要 x, y)
                         - long_press: 长按坐标 (需要 x, y, duration可选，默认1秒)
-                        - input: 输入文本 (需要 text)
+                        - input: 输入文本 (需要 text；text 中可用 {{{{变量名}}}} 引用 http 提取的变量，例如 "{{{{card_no}}}}")
                         - scroll: 滚动页面 (需要 direction: up/down/left/right; 可选 distance: 滚动距离比例0.1~0.8，默认0.3约等于半屏，0.6约等于一屏)
                           ★ direction 按手指划动方向定义，不是内容移动方向：
                             up = 手指从下往上划 = 显示屏幕下方内容（如翻到页面底部）
@@ -539,6 +547,21 @@ class Agent:
                         - wait: 等待一段时间 (需要 duration可选，默认2秒)
                         - open_app: 打开App (需要 text: App的包名)
                         - kill_app: 杀死App进程 (需要 text: App的包名)
+                        - http: 发起 HTTP 接口请求（用例文字里明确要求调用接口、获取数据时使用；
+                          需要 url，可选 method(默认GET)、headers、params(query参数)；
+                          请求体二选一：body（JSON 对象，Content-Type 为 application/json）或
+                          form（表单键值对，Content-Type 为 application/x-www-form-urlencoded）；
+                          extract 是一个"变量名→JSONPath"映射，用于从响应 JSON 中提取值存为变量，
+                          后续 input 等步骤可用 {{{{变量名}}}} 引用。JSONPath 示例：$.data.card_no、$.data.list[0].id）
+                          ★ 仅当用例描述中给出了明确的接口信息时才生成 http 步骤，不要臆造 URL 和参数。
+                          JSON 请求体示例：{{"action":"http","method":"POST","url":"https://api.example.com/card/get",
+                                 "headers":{{"Authorization":"Bearer xxx"}},
+                                 "body":{{"product_id":123}},
+                                 "extract":{{"card_no":"$.data.card_no","card_pwd":"$.data.card_pwd"}}}}
+                          表单(form)请求体示例：{{"action":"http","method":"POST","url":"https://api.example.com/posts",
+                                 "form":{{"title":"文章标题","body":"正文","userId":1}},
+                                 "extract":{{"post_id":"$.id"}}}}
+                          之后在输入框输入卡号：{{"action":"input","text":"{{{{card_no}}}}"}}
                         - finish: 任务完成
                         - assert: 断言验证（验证页面状态是否满足预期，需要 assertion 字段）
 
@@ -651,6 +674,18 @@ class Agent:
                     steps.append(ActionStep(
                         action="assert", description=s.get("description", ""),
                         assertion=assertion))
+                elif action_type == "http":
+                    steps.append(ActionStep(
+                        action="http",
+                        description=s.get("description", ""),
+                        url=s.get("url"),
+                        method=s.get("method", "GET"),
+                        headers=s.get("headers"),
+                        params=s.get("params"),
+                        body=s.get("body"),
+                        form=s.get("form"),
+                        extract=s.get("extract"),
+                    ))
                 else:
                     steps.append(ActionStep(
                         action=action_type,
@@ -864,14 +899,48 @@ class Agent:
                 )
 
             elif action == "input":
-                if step.text:
-                    await self.interface.input_text(step.text)
+                if step.text is not None:
+                    text_value = render_template(step.text, self.variables)
+                    await self.interface.input_text(str(text_value))
                     elapsed_ms = int((time.time() - start_time) * 1000)
                     return ExecutionResult(
                         success=True,
-                        message=f"输入: {step.text}",
+                        message=f"输入: {text_value}",
                         elapsed_ms=elapsed_ms
                     )
+
+            elif action == "http":
+                if not step.url:
+                    return ExecutionResult(
+                        success=False,
+                        message="http 步骤缺少 url 字段",
+                        error="http 步骤缺少 url 字段",
+                    )
+                result = execute_http(
+                    url=step.url,
+                    method=step.method or "GET",
+                    headers=step.headers,
+                    params=step.params,
+                    body=step.body,
+                    form=step.form,
+                    extract=step.extract,
+                    variables=self.variables,
+                )
+                elapsed_ms = result.get("elapsed_ms", 0)
+                extracted = result.get("extracted", {})
+                msg = result["message"]
+                if extracted:
+                    # 不打印敏感值全文，仅展示变量名与长度/预览
+                    preview = {k: (str(v)[:40] + ("..." if len(str(v)) > 40 else ""))
+                               for k, v in extracted.items()}
+                    msg += f"；变量已存入: {preview}"
+                return ExecutionResult(
+                    success=result["success"],
+                    message=msg,
+                    data={"status_code": result.get("status_code"), "extracted": extracted},
+                    elapsed_ms=elapsed_ms,
+                    error=None if result["success"] else msg,
+                )
 
             elif action == "scroll":
                 distance = step.distance if step.distance is not None else 0.3
