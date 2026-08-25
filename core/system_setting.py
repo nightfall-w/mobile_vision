@@ -69,6 +69,14 @@ def get_config_value(key: str, db=None) -> Optional[str]:
         return None
 
 
+def _normalize_base_url(value: str) -> str:
+    """确保地址带协议、末尾无斜杠，避免被浏览器当成相对路径"""
+    value = value.strip().rstrip("/")
+    if value and not value.startswith(("http://", "https://")):
+        value = "http://" + value
+    return value
+
+
 def get_backend_base_url(db=None) -> str:
     """
     后端对外访问地址，用于拼接 HTML 报告链接
@@ -77,7 +85,7 @@ def get_backend_base_url(db=None) -> str:
     """
     configured = get_config_value(KEY_BACKEND_BASE_URL, db)
     if configured:
-        return configured.rstrip("/")
+        return _normalize_base_url(configured)
     return f"http://{_get_local_ip()}:{os.getenv('BACKEND_PORT', '8080')}"
 
 
@@ -89,5 +97,5 @@ def get_frontend_base_url(db=None) -> str:
     """
     configured = get_config_value(KEY_FRONTEND_BASE_URL, db)
     if configured:
-        return configured.rstrip("/")
+        return _normalize_base_url(configured)
     return f"http://{_get_local_ip()}:{os.getenv('FRONTEND_PORT', '5173')}"
