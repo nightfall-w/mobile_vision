@@ -24,6 +24,7 @@ class ActionType(str, Enum):
     WAIT = "wait"
     OPEN_APP = "open_app"
     KILL_APP = "kill_app"
+    HTTP = "http"
     FINISH = "finish"
 
 
@@ -113,6 +114,18 @@ class ActionStep(BaseModel):
     description: Optional[str] = None
     step_id: Optional[str] = None
     assertion: Optional[dict] = None
+    # ── http 动作用 ─────────────────────────────────────────────
+    # 例：{"action":"http","method":"POST","url":"https://.../getCard",
+    #      "headers":{"Authorization":"Bearer xxx"},
+    #      "body":{"product_id":123},
+    #      "extract":{"card_no":"$.data.card_no","card_pwd":"$.data.card_pwd"}}
+    url: Optional[str] = None
+    method: Optional[str] = None
+    headers: Optional[Dict[str, Any]] = None
+    params: Optional[Dict[str, Any]] = None   # URL query 参数
+    body: Optional[Any] = None                # JSON 请求体（dict/list，Content-Type: application/json）
+    form: Optional[Dict[str, Any]] = None     # 表单请求体（dict，Content-Type: application/x-www-form-urlencoded）
+    extract: Optional[Dict[str, str]] = None  # {变量名: JSONPath 表达式}
 
 
 class TaskCompleteSignal(BaseModel):
