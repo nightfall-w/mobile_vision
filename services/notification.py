@@ -3,6 +3,8 @@
 @Description：任务完成通知推送 —— 支持企业微信、飞书、钉钉机器人 Webhook
 @Author：baojun.wang
 """
+import json
+import re
 from datetime import datetime
 from typing import Optional
 
@@ -27,33 +29,34 @@ def _build_wecom_message(title: str, content: str) -> dict:
 
 
 def _build_lark_message(title: str, content: str) -> dict:
-    """飞书机器人消息（富文本格式）"""
-    # 简单解析 content 中的文本行，转为飞书 post 格式
-    paragraphs = []
-    for line in content.split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("# "):
-            paragraphs.append([{"tag": "text", "text": line[2:], "style": ["bold"]}])
-        elif line.startswith("## "):
-            paragraphs.append([{"tag": "text", "text": line[3:], "style": ["bold"]}])
-        elif line.startswith("> "):
-            paragraphs.append([{"tag": "text", "text": line[2:]}])
-        elif line.startswith("**") and line.endswith("**"):
-            paragraphs.append([{"tag": "text", "text": line[2:-2], "style": ["bold"]}])
-        else:
-            paragraphs.append([{"tag": "text", "text": line}])
+    """
+    飞书机器人消息（interactive 卡片 + markdown）
+
+    之前用 post 富文本格式，手动解析 markdown 成段落并给 text 标签加 style:["bold"]，
+    但飞书 text 标签不支持 style 字段，会返回 19002 "params error, unknown content value"，
+    且 HTTP 仍为 200，日志误判为成功。改用卡片原生 markdown，正文可直接复用 wecom/dingtalk
+    同一份 markdown 内容。
+    """
+    # 飞书卡片 markdown 不支持 # / ## ATX 标题，会原样显示井号；
+    # 把行首的 1~6 级标题转换为粗体行（卡片 header 已展示 title）。
+    converted = re.sub(
+        r"^#{1,6}\s+(.+?)\s*#*\s*$",
+        lambda m: f"**{m.group(1)}**",
+        content,
+        flags=re.MULTILINE
+    )
 
     return {
-        "msg_type": "post",
-        "content": {
-            "post": {
-                "zh_cn": {
-                    "title": title,
-                    "content": paragraphs
-                }
-            }
+        "msg_type": "interactive",
+        "card": {
+            "config": {"wide_screen_mode": True},
+            "header": {
+                "title": {"tag": "plain_text", "content": title},
+                "template": "blue"
+            },
+            "elements": [
+                {"tag": "markdown", "content": converted.strip()}
+            ]
         }
     }
 
@@ -91,12 +94,25 @@ def _send_single(platform: str, webhook_url: str, title: str, content: str) -> b
     payload = builder(title, content)
     try:
         resp = requests.post(webhook_url, json=payload, timeout=10)
-        if resp.status_code == 200:
-            logger.info(f"[通知] {platform} 发送成功")
-            return True
-        else:
+        if resp.status_code != 200:
             logger.warning(f"[通知] {platform} 发送失败: HTTP {resp.status_code} {resp.text[:200]}")
             return False
+
+        # 三个平台在 HTTP 200 下仍可能通过 body 业务码报错
+        # 飞书：{code:0, StatusCode:0} 成功；企微/钉钉：{errcode:0} 成功
+        body = {}
+        try:
+            body = resp.json()
+        except ValueError:
+            pass
+        biz_code = body.get("code", body.get("StatusCode", body.get("errcode")))
+        if biz_code not in (0, None):
+            biz_msg = body.get("msg") or body.get("errmsg") or body.get("StatusMessage") or resp.text[:200]
+            logger.warning(f"[通知] {platform} 发送被拒: code={biz_code} msg={biz_msg} payload={json.dumps(payload, ensure_ascii=False)[:300]}")
+            return False
+
+        logger.info(f"[通知] {platform} 发送成功")
+        return True
     except requests.RequestException as e:
         logger.warning(f"[通知] {platform} 请求异常: {e}")
         return False
@@ -150,7 +166,7 @@ def _build_task_content(task, jobs, db) -> str:
             case = db.query(TestCase).filter(TestCase.case_id == j.case_id).first()
             case_name = case.case_name if case else f"用例{j.case_id}"
             reason = (j.result or "")[:100]
-            lines.append(f"> {case_name}：{reason}")
+            lines.append(f"❌ {case_name}：{reason}")
 
     return "\n".join(lines)
 
