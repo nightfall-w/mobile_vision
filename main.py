@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi import Request
+from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.cors import CORSMiddleware
 from starlette.staticfiles import StaticFiles
@@ -71,6 +72,59 @@ app.add_exception_handler(Exception, unified_exception_handler)
 
 # 挂载路由
 app.include_router(api_router)
+
+
+# ── 健康检查 / 连通性探针（免鉴权，供负载均衡、系统配置“测试连通性”等使用）──────────
+
+@app.get("/", include_in_schema=False)
+async def root_liveness():
+    """存活探针（liveness）：进程能响应即正常，不依赖任何下游服务"""
+    return {"status": "ok", "service": "mobile_vision"}
+
+
+@app.get("/health", tags=["健康检查"])
+async def health_check():
+    """就绪探针（readiness）：除进程存活外，顺带探测数据库与 Redis 是否可用
+
+    - 数据库不可用 → HTTP 503（服务未就绪）
+    - Redis 不可用 → 不阻断，标记为 degraded（Redis 不可用时部分功能降级，主流程仍可运行）
+    """
+    from datetime import datetime
+    from sqlalchemy import text
+
+    checks = {}
+
+    # 数据库
+    try:
+        from core.database import SYNC_SESSION
+        db = SYNC_SESSION()
+        try:
+            db.execute(text("SELECT 1"))
+            checks["database"] = "ok"
+        finally:
+            db.close()
+    except Exception as e:
+        checks["database"] = f"fail: {str(e)[:120]}"
+
+    # Redis
+    try:
+        if REDIS_AVAILABLE and getattr(redis_cache, "pool", None):
+            redis_cache.client().ping()
+            checks["redis"] = "ok"
+        else:
+            checks["redis"] = "unavailable"
+    except Exception as e:
+        checks["redis"] = f"fail: {str(e)[:120]}"
+
+    db_ok = checks.get("database") == "ok"
+    http_status = 200 if db_ok else 503
+    body = {
+        "status": "ok" if db_ok else "degraded",
+        "service": "mobile_vision",
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "checks": checks,
+    }
+    return JSONResponse(content=body, status_code=http_status)
 # 挂载静态目录：将 /media 路由映射到本地 media 文件夹
 # 第一个参数是路由前缀，directory 是本地静态文件目录（相对/绝对路径均可）
 app.mount(
